@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flink SpringBoot Demo - API文档</title>
+    <script>
+        // 检查按钮ID修复
+        document.addEventListener('DOMContentLoaded', function() {
+            // 使用localStorage检查是否需要修复按钮ID
+            if (!localStorage.getItem('buttonsFixed')) {
+                console.log('正在跳转到按钮ID修复页面...');
+                
+                // 先存储当前URL，以便修复后返回
+                localStorage.setItem('returnUrl', window.location.href);
+                
+                // 跳转到修复页面
+                setTimeout(function() {
+                    window.location.href = '/fix-buttons';
+                }, 500);
+            } else {
+                console.log('按钮ID已修复，不需要跳转');
+            }
+        });
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+        .header {
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 2rem;
+        }
+        .api-card {
+            margin-bottom: 1.5rem;
+            transition: all 0.3s;
+        }
+        .api-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .card-header {
+            font-weight: bold;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.25rem;
+            overflow-x: auto;
+        }
+        .section-title {
+            margin-top: 2rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        .output-container {
+            max-height: 300px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            border-radius: 0.25rem;
+            padding: 0.5rem;
+            margin-top: 1rem;
+        }
+        .btn-api {
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="text-center">Flink SpringBoot Demo</h1>
+            <p class="text-center text-muted">Apache Flink 与 Spring Boot 集成示例</p>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <h2 class="section-title">DataStream 流处理算子</h2>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- 基础转换算子 -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-primary text-white">
+                        基础转换算子 (Map/Filter/FlatMap)
+                    </div>
+                    <div class="card-body">
+                        <p>应用Map将温度从摄氏度转为华氏度，Filter过滤高温值，FlatMap为每个传感器生成多条记录</p>
+                        <pre><code>GET /api/datastream/basic-transform</code></pre>
+                        <button class="btn btn-primary btn-api" onclick="callApi('/api/datastream/basic-transform', 'basic-transform-output')">
+                            测试API
+                        </button>
+                        <div id="basic-transform-output" class="output-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KeyBy和Reduce算子 -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-success text-white">
+                        KeyBy和Reduce算子
+                    </div>
+                    <div class="card-body">
+                        <p>按传感器ID分组，计算每个传感器的最高温度</p>
+                        <pre><code>GET /api/datastream/keyby-reduce</code></pre>
+                        <button class="btn btn-success btn-api" onclick="callApi('/api/datastream/keyby-reduce', 'keyby-reduce-output')">
+                            测试API
+                        </button>
+                        <div id="keyby-reduce-output" class="output-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Window窗口算子 -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-info text-white">
+                        Window窗口算子
+                    </div>
+                    <div class="card-body">
+                        <p>按传感器ID分组，应用5秒滚动窗口计算窗口内的平均温度</p>
+                        <pre><code>GET /api/datastream/window</code></pre>
+                        <button class="btn btn-info btn-api" onclick="callApi('/api/datastream/window', 'window-output')">
+                            测试API
+                        </button>
+                        <div id="window-output" class="output-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 多流转换算子 -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-warning text-dark">
+                        多流转换算子 (Union/Connect)
+                    </div>
+                    <div class="card-body">
+                        <p>使用Union合并同类型流，Connect连接不同类型流，并使用CoMap分别处理</p>
+                        <pre><code>GET /api/datastream/multi-stream</code></pre>
+                        <button class="btn btn-warning btn-api" onclick="callApi('/api/datastream/multi-stream', 'multi-stream-output')">
+                            测试API
+                        </button>
+                        <div id="multi-stream-output" class="output-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <h2 class="section-title">批处理 API</h2>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- 批处理基本转换 -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-primary text-white">
+                        批处理基本转换
+                    </div>
+                    <div class="card-body">
+                        <p>将文本分割为单词，转为小写，过滤长度大于4的单词，并统计每个单词出现的频率</p>
+                        <pre><code>GET /api/flink/batch/transform</code></pre>
+                        <button class="btn btn-primary btn-api" onclick="callApi('/api/flink/batch/transform', 'batch-transform-output')">
+                            测试API
+                        </button>
+                        <div id="batch-transform-output" class="output-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 批处理分组聚合 -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-success text-white">
+                        批处理分组聚合
+                    </div>
+                    <div class="card-body">
+                        <p>按产品类别统计销售总额</p>
+                        <pre><code>GET /api/flink/batch/aggregate</code></pre>
+                        <button class="btn btn-success btn-api" onclick="callApi('/api/flink/batch/aggregate', 'batch-aggregate-output')">
+                            测试API
+                        </button>
+                        <div id="batch-aggregate-output" class="output-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <h2 class="section-title">流处理 API</h2>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- 处理时间窗口 -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-info text-white">
+                        处理时间窗口
+                    </div>
+                    <div class="card-body">
+                        <p>使用5秒的滚动窗口统计各传感器的车流量</p>
+                        <pre><code>GET /api/flink/stream/processing-time</code></pre>
+                        <button class="btn btn-info btn-api" onclick="callApi('/api/flink/stream/processing-time', 'processing-time-output')">
+                            测试API
+                        </button>
+                        <div id="processing-time-output" class="output-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 事件时间窗口与Watermark -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-warning text-dark">
+                        事件时间窗口与Watermark
+                    </div>
+                    <div class="card-body">
+                        <p>使用5秒的事件时间滚动窗口统计各传感器的车流量，允许2秒的延迟</p>
+                        <pre><code>GET /api/flink/stream/event-time</code></pre>
+                        <button class="btn btn-warning btn-api" onclick="callApi('/api/flink/stream/event-time', 'event-time-output')">
+                            测试API
+                        </button>
+                        <div id="event-time-output" class="output-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <h2 class="section-title">Table API 和 SQL</h2>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Table API查询 -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-primary text-white">
+                        Table API查询
+                    </div>
+                    <div class="card-body">
+                        <p>使用Table API按传感器ID分组，计算平均速度</p>
+                        <pre><code>GET /api/flink/table/api</code></pre>
+                        <button class="btn btn-primary btn-api" onclick="callApi('/api/flink/table/api', 'table-api-output')">
+                            测试API
+                        </button>
+                        <div id="table-api-output" class="output-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SQL查询 -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-success text-white">
+                        SQL查询
+                    </div>
+                    <div class="card-body">
+                        <p>使用SQL按传感器ID分组，计算车流量总和和平均速度</p>
+                        <pre><code>GET /api/flink/table/sql</code></pre>
+                        <button class="btn btn-success btn-api" onclick="callApi('/api/flink/table/sql', 'sql-output')">
+                            测试API
+                        </button>
+                        <div id="sql-output" class="output-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table API与SQL结合 -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-info text-white">
+                        Table API与SQL结合
+                    </div>
+                    <div class="card-body">
+                        <p>先使用Table API过滤速度大于等于60的数据，再使用SQL统计每个传感器的数据量和平均速度</p>
+                        <pre><code>GET /api/flink/table/combined</code></pre>
+                        <button class="btn btn-info btn-api" onclick="callApi('/api/flink/table/combined', 'combined-output')">
+                            测试API
+                        </button>
+                        <div id="combined-output" class="output-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 速度阈值过滤 -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-warning text-dark">
+                        速度阈值过滤
+                    </div>
+                    <div class="card-body">
+                        <p>根据用户输入的速度阈值过滤交通数据，并按传感器ID分组统计</p>
+                        <div class="input-group mb-3">
+                            <input type="number" id="threshold" class="form-control" placeholder="输入速度阈值" value="60">
+                            <button class="btn btn-warning" onclick="callApiWithParam('/api/flink/table/speed-filter', 'threshold', 'speed-filter-output')">
+                                测试API
+                            </button>
+                        </div>
+                        <pre><code>GET /api/flink/table/speed-filter?threshold={value}</code></pre>
+                        <div id="speed-filter-output" class="output-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-5 pt-3 text-muted text-center border-top">
+            © 2023 Flink SpringBoot Demo
+        </footer>
+    </div>
+
+    <script>
+        function callApi(url, outputId) {
+            const outputElement = document.getElementById(outputId);
+            outputElement.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div><p>请求中...</p></div>';
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    // 检查是否有错误
+                    if (data.status && data.status >= 400) {
+                        outputElement.innerHTML = '<div class="alert alert-danger">' + 
+                            '<h5>请求失败: ' + data.error + '</h5>' +
+                            '<p>状态码: ' + data.status + '</p>' +
+                            '<p>时间: ' + data.timestamp + '</p>' +
+                            '<p>路径: ' + data.path + '</p>' +
+                            '</div>';
+                        return;
+                    }
+                    
+                    // 处理不同类型的结果
+                    if (data.result) {
+                        // 构建结果展示内容
+                        let resultHtml = '';
+                        
+                        // 添加操作和描述
+                        if (data.operation || data.description) {
+                            resultHtml += '<div class="mb-3">';
+                            if (data.operation) {
+                                resultHtml += '<h5>' + data.operation + '</h5>';
+                            }
+                            if (data.description) {
+                                resultHtml += '<p class="text-muted">' + data.description + '</p>';
+                            }
+                            resultHtml += '</div>';
+                        }
+                        
+                        // 根据结果类型处理
+                        if (typeof data.result === 'string') {
+                            try {
+                                // 尝试解析Table API与SQL结合的结果
+                                if (data.result.startsWith('[+I[') && data.result.includes('], +I[')) {
+                                    resultHtml += formatSqlResult(data.result);
+                                } else {
+                                    resultHtml += '<pre>' + data.result + '</pre>';
+                                }
+                            } catch (e) {
+                                resultHtml += '<pre>' + data.result + '</pre>';
+                            }
+                        } else if (Array.isArray(data.result)) {
+                            // 数组结果转为表格
+                            resultHtml += formatArrayToTable(data.result);
+                        } else {
+                            // 其他类型数据
+                            resultHtml += '<pre>' + JSON.stringify(data.result, null, 2) + '</pre>';
+                        }
+                        
+                        outputElement.innerHTML = resultHtml;
+                    } else if (Array.isArray(data)) {
+                        // 直接是数组格式（如速度阈值过滤的结果）
+                        outputElement.innerHTML = formatArrayToTable(data);
+                    } else {
+                        // 默认JSON展示
+                        outputElement.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                    }
+                })
+                .catch(error => {
+                    outputElement.innerHTML = '<div class="alert alert-danger">请求失败: ' + error.message + '</div>';
+                });
+        }
+
+        function callApiWithParam(baseUrl, paramName, outputId) {
+            const paramValue = document.getElementById(paramName).value;
+            const url = `${baseUrl}?${paramName}=${paramValue}`;
+            callApi(url, outputId);
+        }
+        
+        // 将数组数据格式化为HTML表格
+        function formatArrayToTable(array) {
+            if (!array || array.length === 0) {
+                return '<div class="alert alert-info">没有数据</div>';
+            }
+            
+            // 获取表格列名
+            const firstItem = array[0];
+            const columns = Object.keys(firstItem);
+            
+            // 构建表格HTML
+            let tableHtml = '<div class="table-responsive"><table class="table table-striped table-hover">';
+            
+            // 表头
+            tableHtml += '<thead><tr>';
+            columns.forEach(column => {
+                // 忽略arity等特殊属性
+                if (column !== 'arity') {
+                    // 美化列名
+                    let displayName = column;
+                    if (column === 'f0') displayName = 'ID/类别';
+                    else if (column === 'f1') displayName = '数值/数量';
+                    else if (column === 'f2') displayName = '来源/类型';
+                    else if (column === 'word') displayName = '单词';
+                    else if (column === 'count') displayName = '次数';
+                    else if (column === 'sensorId') displayName = '传感器ID';
+                    else if (column === 'carCount') displayName = '车辆数量';
+                    else if (column === 'avgSpeed') displayName = '平均速度';
+                    
+                    tableHtml += '<th>' + displayName + '</th>';
+                }
+            });
+            tableHtml += '</tr></thead>';
+            
+            // 表内容
+            tableHtml += '<tbody>';
+            array.forEach(item => {
+                tableHtml += '<tr>';
+                columns.forEach(column => {
+                    // 忽略arity等特殊属性
+                    if (column !== 'arity') {
+                        let value = item[column];
+                        // 格式化数值，保留2位小数
+                        if (typeof value === 'number' && !Number.isInteger(value)) {
+                            value = value.toFixed(2);
+                        }
+                        tableHtml += '<td>' + value + '</td>';
+                    }
+                });
+                tableHtml += '</tr>';
+            });
+            tableHtml += '</tbody></table></div>';
+            
+            return tableHtml;
+        }
+        
+        // 解析SQL结果字符串并格式化为表格
+        function formatSqlResult(resultStr) {
+            try {
+                // 从字符串如 "[+I[1, 15, 75.0], +I[2, 8, 61.25], ...]" 中提取数据
+                const matches = resultStr.match(/\+I\[([^\]]+)\]/g);
+                if (!matches || matches.length === 0) {
+                    return '<pre>' + resultStr + '</pre>';
+                }
+                
+                // 解析数据项
+                const parsedData = matches.map(match => {
+                    // 去掉 "+I[" 和 "]"
+                    const content = match.substring(3, match.length - 1);
+                    // 分割字段值
+                    const values = content.split(', ');
+                    
+                    // 返回一个对象
+                    return {
+                        sensorId: parseInt(values[0], 10),
+                        carCount: parseInt(values[1], 10),
+                        avgSpeed: parseFloat(values[2])
+                    };
+                });
+                
+                // 将解析后的数据转为表格
+                return formatArrayToTable(parsedData);
+            } catch (e) {
+                console.error('解析SQL结果失败', e);
+                return '<pre>' + resultStr + '</pre>';
+            }
+        }
+    </script>
+</body>
+</html> 

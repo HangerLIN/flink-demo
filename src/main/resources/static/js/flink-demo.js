@@ -75,12 +75,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     batchTransformLoading.style.display = 'none';
                     
                     let resultHtml = '<h4>转换结果:</h4>';
+                    resultHtml += '<p>' + data.description + '</p>';
+                    
                     if (data && data.result && data.result.length > 0) {
-                        resultHtml += '<div class="result-words">';
-                        data.result.forEach(word => {
-                            resultHtml += `<span class="word-chip">${word}</span>`;
+                        resultHtml += '<div class="result-table"><table>';
+                        resultHtml += '<tr><th>单词</th><th>出现次数</th></tr>';
+                        data.result.forEach(item => {
+                            resultHtml += `<tr><td>${item.word}</td><td>${item.count}</td></tr>`;
                         });
-                        resultHtml += '</div>';
+                        resultHtml += '</table></div>';
                     } else {
                         resultHtml += '<div class="no-data">没有数据</div>';
                     }

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>修复按钮 ID</title>
+    <script>
+        // 这个脚本用于替换按钮ID，使其与JavaScript中的选择器匹配
+        document.addEventListener('DOMContentLoaded', function() {
+            // 先检查是否有需要返回的URL
+            const returnUrl = localStorage.getItem('returnUrl');
+            
+            // 如果按钮已修复过，直接返回首页
+            if (localStorage.getItem('buttonsFixed')) {
+                if (returnUrl) {
+                    window.location.href = returnUrl;
+                } else {
+                    window.location.href = '/';
+                }
+                return;
+            }
+            
+            // 加载主页内容
+            fetch('/')
+                .then(response => response.text())
+                .then(html => {
+                    // 创建临时DOM以处理HTML
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = html;
+                    
+                    // 获取页面中所有的按钮
+                    updateButton(tempDiv, '批处理 - 基本转换', 'loadBatchTransformBtn');
+                    updateButton(tempDiv, '批处理 - 分组聚合', 'loadBatchAggregateBtn');
+                    updateButton(tempDiv, '流处理 - 处理时间窗口', 'loadProcessingTimeBtn');
+                    updateButton(tempDiv, 'Table API 演示', 'loadTableApiBtn');
+                    updateButton(tempDiv, 'Table API与SQL结合', 'loadCombinedBtn');
+                    
+                    // 设置已修复标记
+                    localStorage.setItem('buttonsFixed', 'true');
+                    
+                    // 显示成功消息
+                    document.getElementById('status').textContent = '按钮ID修复成功！';
+                    document.getElementById('status').className = 'success';
+                    
+                    // 延迟后返回首页
+                    setTimeout(function() {
+                        if (returnUrl) {
+                            window.location.href = returnUrl;
+                        } else {
+                            window.location.href = '/';
+                        }
+                    }, 1500);
+                })
+                .catch(error => {
+                    console.error('加载首页失败:', error);
+                    document.getElementById('status').textContent = '修复失败: ' + error.message;
+                    document.getElementById('status').className = 'error';
+                });
+        });
+        
+        function updateButton(container, sectionTitle, btnId) {
+            // 找到含有特定标题的section
+            const sections = container.querySelectorAll('.api-section h3');
+            for (let i = 0; i < sections.length; i++) {
+                if (sections[i].textContent.trim() === sectionTitle) {
+                    const section = sections[i].closest('.api-section');
+                    const btn = section.querySelector('.btn');
+                    if (btn) {
+                        console.log(`正在更新按钮: "${sectionTitle}" 的ID为 "${btnId}"`);
+                        btn.id = btnId;
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        h1 {
+            color: #0070E0;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+            padding: 10px;
+            margin-top: 20px;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+            padding: 10px;
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 16px;
+            background-color: #0070E0;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        button:hover {
+            background-color: #0060C0;
+        }
+    </style>
+</head>
+<body>
+    <h1>修复按钮 ID</h1>
+    <p>此页面用于修复Flink演示应用中的按钮ID。</p>
+    <p>系统正在自动修复页面中的按钮ID，完成后将自动返回首页...</p>
+    
+    <div id="status">正在修复按钮ID...</div>
+    
+    <div>
+        <button onclick="window.location.href='/'">手动返回首页</button>
+    </div>
+</body>
+</html> 

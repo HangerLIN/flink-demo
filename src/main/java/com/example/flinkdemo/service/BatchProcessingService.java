@@ -26,18 +26,25 @@ public class BatchProcessingService {
     private final ExecutionEnvironment batchEnv;
 
     /**
-     * 演示基本的数据转换操作（Map, FlatMap, Filter）
+     * 演示基本的数据转换操作（Map, FlatMap, Filter）并统计词频
      */
-    public List<String> basicTransformationDemo() throws Exception {
-        // 创建一个简单的字符串数据集
+    public List<Tuple2<String, Integer>> basicTransformationDemo() throws Exception {
+        // 创建一个简化的数据集，减少类别但保持大量重复以便统计
         DataSet<String> textDataSet = batchEnv.fromElements(
-                "Flink Apache Spark Hadoop",
-                "Flink Spark Storm Samza",
-                "Hadoop HDFS Hive Pig"
+                "Flink Java Flink Python Flink Scala Flink JavaScript Flink TypeScript Flink Ruby Flink Golang Flink Swift",
+                "Flink Hadoop Flink Spark Flink MapReduce Flink HDFS Flink Storm Flink Kafka Flink ZooKeeper Flink Beam",
+                "Java Spring Java Hibernate Java MyBatis Java JDBC Java JPA Java Spring Java Boot Java Cloud Java Microservice",
+                "Python Django Python Flask Python FastAPI Python Tornado Python Celery Python Pandas Python NumPy Python TensorFlow",
+                "Cloud AWS Cloud Azure Cloud Google Cloud Alibaba Cloud Tencent Cloud DigitalOcean Cloud Heroku Cloud Vercel",
+                "Database MySQL Database Redis Database MongoDB Database PostgreSQL Database Oracle Database SQLite Database MariaDB",
+                "React Angular React Vue React Svelte React NextJS React Gatsby React Redux React MobX React GraphQL React Apollo",
+                "Docker Kubernetes Docker Swarm Docker Compose Docker Podman Docker Containerd Docker CRI-O Docker LXC Docker OCI",
+                "Linux Ubuntu Linux Debian Linux CentOS Linux Fedora Linux Arch Linux RHEL Linux Alpine Linux Gentoo Linux Mint",
+                "Security Firewall Security VPN Security Encryption Security Authentication Security Authorization Security OAuth"
         );
 
-        // 将文本行分割为单词，转换为小写，过滤出长度大于4的单词
-        DataSet<String> processedWords = textDataSet
+        // 分割单词、转换为小写、过滤长度大于4的单词，并进行词频统计
+        DataSet<Tuple2<String, Integer>> wordCounts = textDataSet
                 .flatMap(new FlatMapFunction<String, String>() {
                     @Override
                     public void flatMap(String line, Collector<String> out) {
@@ -56,9 +63,21 @@ public class BatchProcessingService {
                     public boolean filter(String word) {
                         return word.length() > 4;
                     }
-                });
+                })
+                .map(new MapFunction<String, Tuple2<String, Integer>>() {
+                    @Override
+                    public Tuple2<String, Integer> map(String word) {
+                        return new Tuple2<>(word, 1);
+                    }
+                })
+                .groupBy(0)
+                .sum(1);
 
-        return processedWords.collect();
+        // 获取结果并按词频从高到低排序
+        List<Tuple2<String, Integer>> result = wordCounts.collect();
+        result.sort((a, b) -> Integer.compare(b.f1, a.f1)); // 从高到低排序
+        
+        return result;
     }
 
     /**
@@ -69,7 +88,7 @@ public class BatchProcessingService {
         DataSet<String> textDataSet = batchEnv.fromElements(
                 "Flink Apache Spark Hadoop",
                 "Flink Spark Storm Samza",
-                "Hadoop HDFS Hive Pig"
+                "Hadoop HDFS Hive Pig Flink Flink"
         );
 
         // 实现经典的WordCount

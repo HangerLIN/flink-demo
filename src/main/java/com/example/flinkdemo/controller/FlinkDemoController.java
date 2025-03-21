@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,12 +36,21 @@ public class FlinkDemoController {
     @GetMapping("/batch/transform")
     public Map<String, Object> batchTransformDemo() throws Exception {
         log.info("执行批处理基本转换演示");
-        List<String> result = batchService.basicTransformationDemo();
+        List<Tuple2<String, Integer>> result = batchService.basicTransformationDemo();
+        
+        // 将Tuple2转换为更容易序列化的格式
+        List<Map<String, Object>> formattedResult = new ArrayList<>();
+        for (Tuple2<String, Integer> tuple : result) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("word", tuple.f0);
+            item.put("count", tuple.f1);
+            formattedResult.add(item);
+        }
         
         Map<String, Object> response = new HashMap<>();
-        response.put("operation", "批处理基本转换（Map, FlatMap, Filter）");
-        response.put("description", "将文本分割为单词，转为小写，并过滤长度大于4的单词");
-        response.put("result", result);
+        response.put("operation", "批处理基本转换与词频统计");
+        response.put("description", "将文本分割为单词，转为小写，过滤长度大于4的单词，并统计每个单词出现的频率");
+        response.put("result", formattedResult);
         
         return response;
     }
