@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>修复按钮 ID</title>
+    <script>
+        // 这个脚本用于替换按钮ID，使其与JavaScript中的选择器匹配
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取页面中所有的按钮
+            updateButton('批处理 - 基本转换', 'loadBatchTransformBtn');
+            updateButton('批处理 - 分组聚合', 'loadBatchAggregateBtn');
+            updateButton('流处理 - 处理时间窗口', 'loadProcessingTimeBtn');
+            updateButton('Table API 演示', 'loadTableApiBtn');
+            updateButton('Table API与SQL结合', 'loadCombinedBtn');
+        });
+        
+        function updateButton(sectionTitle, btnId) {
+            // 找到含有特定标题的section
+            const sections = document.querySelectorAll('.api-section h3');
+            for (let i = 0; i < sections.length; i++) {
+                if (sections[i].textContent.trim() === sectionTitle) {
+                    const section = sections[i].closest('.api-section');
+                    const btn = section.querySelector('.btn');
+                    if (btn) {
+                        console.log(`正在更新按钮: "${sectionTitle}" 的ID为 "${btnId}"`);
+                        btn.id = btnId;
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>修复按钮 ID</h1>
+    <p>此页面用于修复Flink演示应用中的按钮ID。</p>
+    <p>打开控制台可以看到按钮ID更新日志。</p>
+    
+    <div>
+        <button onclick="window.location.href='/'">返回首页</button>
+    </div>
+</body>
+</html> 

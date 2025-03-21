@@ -1,0 +1,26 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: flink-springboot-demo
+  thymeleaf:
+    cache: false
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+
+logging:
+  level:
+    root: INFO
+    com.example.flinkdemo: DEBUG
+    org.apache.flink: INFO
+
+flink:
+  job:
+    parallelism: 1
+    checkpoints: 
+      enabled: true
+      interval: 10000  # 10秒
+      timeout: 60000   # 1分钟
+      minPauseBetween: 5000  # 5秒 

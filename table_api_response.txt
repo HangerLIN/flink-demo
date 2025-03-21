@@ -1,0 +1,23 @@
+* Host localhost:8090 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying [::1]:8090...
+* Connected to localhost (::1) port 8090
+> GET /api/flink/table/api HTTP/1.1
+> Host: localhost:8090
+> User-Agent: curl/8.7.1
+> Accept: */*
+> 
+* Request completely sent off
+  0     0    0     0    0     0      0      0 --:--:--  0:00:01 --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:02 --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:03 --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:04 --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:05 --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:06 --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:07 --:--:--     0< HTTP/1.1 500 
+< Content-Type: application/json
+< Transfer-Encoding: chunked
+< Date: Fri, 21 Mar 2025 11:49:23 GMT
+< Connection: close
+< 
+{ [126 bytes data]
+100   120    0   120    0     0     15      0 --:--:--  0:00:07 --:--:--    25100   120    0   120    0     0     15      0 --:--:--  0:00:07 --:--:--    32
+* Closing connection
+{"timestamp":"2025-03-21T11:49:23.332+00:00","status":500,"error":"Internal Server Error","path":"/api/flink/table/api"}
