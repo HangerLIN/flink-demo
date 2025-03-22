@@ -68,6 +68,36 @@
         .btn-api {
             margin-top: 1rem;
         }
+        /* 新增的CEP欺诈检测按钮样式 */
+        .fraud-detection-banner {
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            color: white;
+            text-align: center;
+            box-shadow: 0 8px 20px rgba(220, 53, 69, 0.2);
+            transition: all 0.3s;
+        }
+        .fraud-detection-banner:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 30px rgba(220, 53, 69, 0.3);
+        }
+        .fraud-btn {
+            background-color: white;
+            color: #dc3545;
+            border: none;
+            font-weight: bold;
+            padding: 10px 25px;
+            border-radius: 50px;
+            margin-top: 15px;
+            transition: all 0.3s;
+        }
+        .fraud-btn:hover {
+            background-color: #f8f9fa;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transform: translateY(-3px);
+        }
     </style>
 </head>
 <body>
@@ -75,6 +105,13 @@
         <div class="header">
             <h1 class="text-center">Flink SpringBoot Demo</h1>
             <p class="text-center text-muted">Apache Flink 与 Spring Boot 集成示例</p>
+        </div>
+
+        <!-- 欺诈检测系统入口横幅 -->
+        <div class="fraud-detection-banner">
+            <h2><i class="bi bi-shield-check"></i> Flink CEP 实时交易欺诈检测系统</h2>
+            <p>基于Apache Flink复杂事件处理(CEP)的实时交易欺诈检测演示，通过模式匹配实现高效精准的风险识别</p>
+            <a href="/fraud-cep-demo.html" class="btn fraud-btn">进入欺诈检测系统 <i class="bi bi-arrow-right"></i></a>
         </div>
 
         <div class="row">
@@ -239,6 +276,98 @@
 
         <div class="row">
             <div class="col-md-12">
+                <h2 class="section-title">欺诈检测系统</h2>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- 欺诈检测功能 -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-danger text-white">
+                        实时交易欺诈检测
+                    </div>
+                    <div class="card-body">
+                        <p>使用Flink CEP(复杂事件处理)实时检测可疑交易行为，包括快速连续交易、地理位置异常变化、大额交易等模式</p>
+                        <div class="d-flex justify-content-center mt-3">
+                            <a href="/fraud-detection.html" class="btn btn-danger">进入欺诈检测页面</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 规则管理 -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-secondary text-white">
+                        欺诈检测规则管理
+                    </div>
+                    <div class="card-body">
+                        <p>查看、添加、修改和删除欺诈检测规则，包括规则参数配置和条件设置</p>
+                        <div class="d-flex justify-content-center mt-3">
+                            <a href="/rule-management.html" class="btn btn-secondary">管理检测规则</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 警报管理 -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-warning text-dark">
+                        欺诈警报管理
+                    </div>
+                    <div class="card-body">
+                        <p>查看和处理系统检测到的欺诈警报，包括警报详情、风险级别、相关交易和建议操作</p>
+                        <div class="d-flex justify-content-center mt-3">
+                            <a href="/alerts.html" class="btn btn-warning">查看欺诈警报</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 流量异常分析 -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-info text-white">
+                        交易流量异常分析
+                    </div>
+                    <div class="card-body">
+                        <p>监控和分析交易流量异常情况，检测流量激增、异常交易模式和用户行为变化</p>
+                        <div class="d-flex justify-content-center mt-3">
+                            <a href="/anomalies.html" class="btn btn-info">查看流量异常</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 高级水印特性 -->
+        <div class="row">
+            <div class="col-md-12">
+                <h2 class="section-title">高级水印特性</h2>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card api-card">
+                    <div class="card-header bg-dark text-white">
+                        高级水印机制与城市交通监控
+                    </div>
+                    <div class="card-body">
+                        <p>演示Apache Flink的高级水印特性，包括基础水印、水印对齐、积压处理与综合特性演示</p>
+                        <p>此示例应用于城市交通监控场景，展示如何处理多源数据流、处理延迟事件和应对数据积压</p>
+                        <div class="d-flex justify-content-center mt-3">
+                            <a href="/watermark.html" class="btn btn-dark">进入高级水印演示页面</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
                 <h2 class="section-title">Table API 和 SQL</h2>
             </div>
         </div>
@@ -321,6 +450,7 @@
         </footer>
     </div>
 
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <script>
         function callApi(url, outputId) {
             const outputElement = document.getElementById(outputId);

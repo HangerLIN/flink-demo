@@ -18,6 +18,14 @@ public class HomeController {
     }
     
     /**
+     * 水印特性页 - 重定向到水印静态HTML
+     */
+    @GetMapping("/watermark")
+    public RedirectView watermark() {
+        return new RedirectView("/watermark.html");
+    }
+    
+    /**
      * 修复按钮ID页面
      */
     @GetMapping(value = "/fix-buttons", produces = MediaType.TEXT_HTML_VALUE)

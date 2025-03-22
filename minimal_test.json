@@ -1,0 +1,14 @@
+[
+  {
+    "transactionId": "min-test-001",
+    "userId": "user1",
+    "amount": 15000,
+    "type": "TRANSFER",
+    "channel": "WEB",
+    "ipAddress": "192.168.1.100",
+    "location": "Beijing",
+    "deviceId": "device-1",
+    "timestamp": "2025-03-22T07:36:12",
+    "riskScore": 75
+  }
+]

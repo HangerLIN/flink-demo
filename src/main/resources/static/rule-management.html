@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>欺诈检测规则管理 - Flink Demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+        .header {
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 2rem;
+        }
+        .card {
+            margin-bottom: 1.5rem;
+            transition: all 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .section-title {
+            margin-top: 2rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        .rule-card {
+            margin-bottom: 1rem;
+        }
+        .rule-card .card-header {
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .rule-actions {
+            white-space: nowrap;
+        }
+        .rule-status-active {
+            background-color: #d1e7dd;
+        }
+        .rule-status-inactive {
+            background-color: #f8d7da;
+        }
+        .rule-status-draft {
+            background-color: #fff3cd;
+        }
+        .modal-dialog {
+            max-width: 800px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1>欺诈检测规则管理</h1>
+                <a href="/" class="btn btn-outline-secondary">返回首页</a>
+            </div>
+            <p class="text-muted">管理用于欺诈检测的业务规则</p>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">
+                        规则概览
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-3">
+                                <h3 id="totalRules">0</h3>
+                                <p>总规则数</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h3 id="activeRules">0</h3>
+                                <p>激活规则</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h3 id="inactiveRules">0</h3>
+                                <p>未激活规则</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h3 id="draftRules">0</h3>
+                                <p>草稿规则</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h2>规则列表</h2>
+                    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addRuleModal">
+                        <i class="bi bi-plus-circle"></i> 添加新规则
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="rulesContainer" class="row">
+            <!-- 规则卡片将在这里动态生成 -->
+            <div class="col-12 text-center py-5">
+                <div class="spinner-border text-secondary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">加载规则中...</p>
+            </div>
+        </div>
+
+        <!-- 添加规则模态框 -->
+        <div class="modal fade" id="addRuleModal" tabindex="-1" aria-labelledby="addRuleModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title" id="addRuleModalLabel">添加新规则</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="addRuleForm">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="ruleId" class="form-label">规则ID</label>
+                                    <input type="text" class="form-control" id="ruleId" placeholder="例如：RULE_NEW_PATTERN" required>
+                                    <div class="form-text">唯一标识符，建议使用RULE_前缀</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="ruleName" class="form-label">规则名称</label>
+                                    <input type="text" class="form-control" id="ruleName" placeholder="例如：新用户异常交易检测" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="description" class="form-label">规则描述</label>
+                                <textarea class="form-control" id="description" rows="2" placeholder="详细描述规则的用途和检测逻辑"></textarea>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label for="status" class="form-label">状态</label>
+                                    <select class="form-select" id="status" required>
+                                        <option value="ACTIVE">激活</option>
+                                        <option value="INACTIVE">未激活</option>
+                                        <option value="DRAFT" selected>草稿</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="priority" class="form-label">优先级</label>
+                                    <input type="number" class="form-control" id="priority" min="1" max="10" value="5">
+                                    <div class="form-text">1-10，值越小优先级越高</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="timeWindowSeconds" class="form-label">时间窗口(秒)</label>
+                                    <input type="number" class="form-control" id="timeWindowSeconds" min="1" value="60">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="ruleType" class="form-label">规则类型</label>
+                                <select class="form-select" id="ruleType" required>
+                                    <option value="FRAUD_DETECTION" selected>欺诈检测</option>
+                                    <option value="TRAFFIC_MONITORING">流量监控</option>
+                                    <option value="RISK_ASSESSMENT">风险评估</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">触发行为</label>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="GENERATE_ALERT" id="actionAlert" checked>
+                                            <label class="form-check-label" for="actionAlert">生成警报</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="BLOCK_TRANSACTION" id="actionBlock">
+                                            <label class="form-check-label" for="actionBlock">阻止交易</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="UPDATE_RISK_SCORE" id="actionRisk">
+                                            <label class="form-check-label" for="actionRisk">更新风险评分</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">规则条件</label>
+                                <div class="card">
+                                    <div class="card-body">
+                                        <div id="conditionsContainer">
+                                            <div class="row mb-2 condition-row">
+                                                <div class="col-md-5">
+                                                    <input type="text" class="form-control condition-key" placeholder="条件名称">
+                                                </div>
+                                                <div class="col-md-5">
+                                                    <input type="text" class="form-control condition-value" placeholder="条件值">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <button type="button" class="btn btn-danger btn-sm remove-condition">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="addConditionBtn">
+                                            <i class="bi bi-plus-circle"></i> 添加条件
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-success" id="saveRuleBtn">保存规则</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 编辑规则模态框 -->
+        <div class="modal fade" id="editRuleModal" tabindex="-1" aria-labelledby="editRuleModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title" id="editRuleModalLabel">编辑规则</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="editRuleForm">
+                            <input type="hidden" id="editRuleId">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="editRuleName" class="form-label">规则名称</label>
+                                    <input type="text" class="form-control" id="editRuleName" placeholder="例如：新用户异常交易检测" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="editStatus" class="form-label">状态</label>
+                                    <select class="form-select" id="editStatus" required>
+                                        <option value="ACTIVE">激活</option>
+                                        <option value="INACTIVE">未激活</option>
+                                        <option value="DRAFT">草稿</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="editDescription" class="form-label">规则描述</label>
+                                <textarea class="form-control" id="editDescription" rows="2" placeholder="详细描述规则的用途和检测逻辑"></textarea>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="editPriority" class="form-label">优先级</label>
+                                    <input type="number" class="form-control" id="editPriority" min="1" max="10" value="5">
+                                    <div class="form-text">1-10，值越小优先级越高</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="editTimeWindowSeconds" class="form-label">时间窗口(秒)</label>
+                                    <input type="number" class="form-control" id="editTimeWindowSeconds" min="1" value="60">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="editRuleType" class="form-label">规则类型</label>
+                                <select class="form-select" id="editRuleType" required>
+                                    <option value="FRAUD_DETECTION">欺诈检测</option>
+                                    <option value="TRAFFIC_MONITORING">流量监控</option>
+                                    <option value="RISK_ASSESSMENT">风险评估</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">触发行为</label>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="GENERATE_ALERT" id="editActionAlert">
+                                            <label class="form-check-label" for="editActionAlert">生成警报</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="BLOCK_TRANSACTION" id="editActionBlock">
+                                            <label class="form-check-label" for="editActionBlock">阻止交易</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="UPDATE_RISK_SCORE" id="editActionRisk">
+                                            <label class="form-check-label" for="editActionRisk">更新风险评分</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">规则条件</label>
+                                <div class="card">
+                                    <div class="card-body">
+                                        <div id="editConditionsContainer">
+                                            <!-- 已有条件将在这里动态生成 -->
+                                        </div>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="editAddConditionBtn">
+                                            <i class="bi bi-plus-circle"></i> 添加条件
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-primary" id="updateRuleBtn">更新规则</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-5 pt-3 text-muted text-center border-top">
+            © 2023 Flink SpringBoot Demo
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取所有规则
+            fetchRules();
+            
+            // 添加条件按钮
+            document.getElementById('addConditionBtn').addEventListener('click', function() {
+                addConditionRow('conditionsContainer');
+            });
+            
+            // 编辑条件按钮
+            document.getElementById('editAddConditionBtn').addEventListener('click', function() {
+                addConditionRow('editConditionsContainer');
+            });
+            
+            // 监听删除条件按钮事件（使用事件委托）
+            document.body.addEventListener('click', function(e) {
+                if (e.target && e.target.classList.contains('remove-condition') || 
+                    (e.target.parentElement && e.target.parentElement.classList.contains('remove-condition'))) {
+                    const button = e.target.closest('.remove-condition');
+                    if (button) {
+                        const row = button.closest('.condition-row');
+                        if (row) {
+                            row.remove();
+                        }
+                    }
+                }
+            });
+            
+            // 保存规则按钮
+            document.getElementById('saveRuleBtn').addEventListener('click', function() {
+                saveRule();
+            });
+            
+            // 更新规则按钮
+            document.getElementById('updateRuleBtn').addEventListener('click', function() {
+                updateRule();
+            });
+        });
+        
+        // 获取所有规则
+        function fetchRules() {
+            fetch('/api/fraud-detection/rules')
+                .then(response => response.json())
+                .then(rules => {
+                    displayRules(rules);
+                    updateRuleStats(rules);
+                })
+                .catch(error => {
+                    document.getElementById('rulesContainer').innerHTML = `
+                        <div class="col-12">
+                            <div class="alert alert-danger">
+                                <h5>无法加载规则</h5>
+                                <p>${error.message}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+        }
+        
+        // 显示规则
+        function displayRules(rules) {
+            if (!rules || rules.length === 0) {
+                document.getElementById('rulesContainer').innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            <h5>暂无规则</h5>
+                            <p>点击"添加新规则"按钮创建你的第一个欺诈检测规则。</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            
+            rules.forEach(rule => {
+                let statusClass = 'rule-status-inactive';
+                if (rule.status === 'ACTIVE') {
+                    statusClass = 'rule-status-active';
+                } else if (rule.status === 'DRAFT') {
+                    statusClass = 'rule-status-draft';
+                }
+                
+                html += `
+                    <div class="col-md-6">
+                        <div class="card rule-card">
+                            <div class="card-header ${statusClass}">
+                                <span>${rule.ruleName}</span>
+                                <div class="rule-actions">
+                                    <button class="btn btn-sm btn-primary" onclick="editRule('${rule.ruleId}')">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteRule('${rule.ruleId}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text">${rule.description || '无描述'}</p>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <small class="text-muted">优先级: ${rule.priority}</small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <small class="text-muted">时间窗口: ${rule.timeWindowSeconds}秒</small>
+                                    </div>
+                                </div>
+                                <div class="mt-2">
+                                    <span class="badge bg-secondary">${rule.ruleId}</span>
+                                    <span class="badge bg-primary">${rule.type}</span>
+                                    <span class="badge bg-${rule.status === 'ACTIVE' ? 'success' : (rule.status === 'DRAFT' ? 'warning' : 'danger')}">${rule.status}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('rulesContainer').innerHTML = html;
+        }
+        
+        // 更新规则统计
+        function updateRuleStats(rules) {
+            if (!rules) {
+                return;
+            }
+            
+            const totalRules = rules.length;
+            let activeRules = 0;
+            let inactiveRules = 0;
+            let draftRules = 0;
+            
+            rules.forEach(rule => {
+                if (rule.status === 'ACTIVE') {
+                    activeRules++;
+                } else if (rule.status === 'INACTIVE') {
+                    inactiveRules++;
+                } else if (rule.status === 'DRAFT') {
+                    draftRules++;
+                }
+            });
+            
+            document.getElementById('totalRules').textContent = totalRules;
+            document.getElementById('activeRules').textContent = activeRules;
+            document.getElementById('inactiveRules').textContent = inactiveRules;
+            document.getElementById('draftRules').textContent = draftRules;
+        }
+        
+        // 添加条件行
+        function addConditionRow(containerId) {
+            const container = document.getElementById(containerId);
+            const newRow = document.createElement('div');
+            newRow.className = 'row mb-2 condition-row';
+            newRow.innerHTML = `
+                <div class="col-md-5">
+                    <input type="text" class="form-control condition-key" placeholder="条件名称">
+                </div>
+                <div class="col-md-5">
+                    <input type="text" class="form-control condition-value" placeholder="条件值">
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-danger btn-sm remove-condition">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            `;
+            container.appendChild(newRow);
+        }
+        
+        // 保存规则
+        function saveRule() {
+            // 获取基础信息
+            const ruleId = document.getElementById('ruleId').value;
+            const ruleName = document.getElementById('ruleName').value;
+            const description = document.getElementById('description').value;
+            const status = document.getElementById('status').value;
+            const priority = parseInt(document.getElementById('priority').value);
+            const timeWindowSeconds = parseInt(document.getElementById('timeWindowSeconds').value);
+            const ruleType = document.getElementById('ruleType').value;
+            
+            // 验证必填项
+            if (!ruleId || !ruleName) {
+                alert('规则ID和规则名称为必填项');
+                return;
+            }
+            
+            // 获取触发行为
+            const actions = [];
+            if (document.getElementById('actionAlert').checked) {
+                actions.push('GENERATE_ALERT');
+            }
+            if (document.getElementById('actionBlock').checked) {
+                actions.push('BLOCK_TRANSACTION');
+            }
+            if (document.getElementById('actionRisk').checked) {
+                actions.push('UPDATE_RISK_SCORE');
+            }
+            
+            // 获取条件
+            const conditions = {};
+            const conditionRows = document.querySelectorAll('#conditionsContainer .condition-row');
+            conditionRows.forEach(row => {
+                const key = row.querySelector('.condition-key').value;
+                const value = row.querySelector('.condition-value').value;
+                if (key && value) {
+                    // 尝试将值转换为数字
+                    if (!isNaN(value)) {
+                        conditions[key] = parseInt(value);
+                    } else {
+                        conditions[key] = value;
+                    }
+                }
+            });
+            
+            // 构建规则对象
+            const rule = {
+                ruleId: ruleId,
+                ruleName: ruleName,
+                description: description,
+                status: status,
+                priority: priority,
+                type: ruleType,
+                timeWindowSeconds: timeWindowSeconds,
+                conditions: conditions,
+                actions: actions,
+                eventSequence: ['TRANSACTION'] // 默认事件序列
+            };
+            
+            // 发送请求
+            fetch('/api/fraud-detection/rules', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(rule)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('保存规则失败');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // 关闭模态框并刷新规则列表
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addRuleModal'));
+                modal.hide();
+                
+                // 重置表单
+                document.getElementById('addRuleForm').reset();
+                
+                // 重新获取规则
+                fetchRules();
+                
+                // 显示成功消息
+                alert('规则保存成功！');
+            })
+            .catch(error => {
+                alert('保存规则失败: ' + error.message);
+            });
+        }
+        
+        // 编辑规则
+        function editRule(ruleId) {
+            // 获取规则详情
+            fetch(`/api/fraud-detection/rules/${ruleId}`)
+                .then(response => response.json())
+                .then(rule => {
+                    // 填充表单
+                    document.getElementById('editRuleId').value = rule.ruleId;
+                    document.getElementById('editRuleName').value = rule.ruleName;
+                    document.getElementById('editDescription').value = rule.description || '';
+                    document.getElementById('editStatus').value = rule.status;
+                    document.getElementById('editPriority').value = rule.priority;
+                    document.getElementById('editTimeWindowSeconds').value = rule.timeWindowSeconds;
+                    document.getElementById('editRuleType').value = rule.type;
+                    
+                    // 设置触发行为
+                    document.getElementById('editActionAlert').checked = rule.actions.includes('GENERATE_ALERT');
+                    document.getElementById('editActionBlock').checked = rule.actions.includes('BLOCK_TRANSACTION');
+                    document.getElementById('editActionRisk').checked = rule.actions.includes('UPDATE_RISK_SCORE');
+                    
+                    // 清空并填充条件
+                    const container = document.getElementById('editConditionsContainer');
+                    container.innerHTML = '';
+                    
+                    if (rule.conditions) {
+                        for (const [key, value] of Object.entries(rule.conditions)) {
+                            const newRow = document.createElement('div');
+                            newRow.className = 'row mb-2 condition-row';
+                            newRow.innerHTML = `
+                                <div class="col-md-5">
+                                    <input type="text" class="form-control condition-key" value="${key}" placeholder="条件名称">
+                                </div>
+                                <div class="col-md-5">
+                                    <input type="text" class="form-control condition-value" value="${value}" placeholder="条件值">
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="button" class="btn btn-danger btn-sm remove-condition">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            `;
+                            container.appendChild(newRow);
+                        }
+                    }
+                    
+                    // 显示模态框
+                    const modal = new bootstrap.Modal(document.getElementById('editRuleModal'));
+                    modal.show();
+                })
+                .catch(error => {
+                    alert('获取规则详情失败: ' + error.message);
+                });
+        }
+        
+        // 更新规则
+        function updateRule() {
+            // 获取规则ID
+            const ruleId = document.getElementById('editRuleId').value;
+            
+            // 获取基础信息
+            const ruleName = document.getElementById('editRuleName').value;
+            const description = document.getElementById('editDescription').value;
+            const status = document.getElementById('editStatus').value;
+            const priority = parseInt(document.getElementById('editPriority').value);
+            const timeWindowSeconds = parseInt(document.getElementById('editTimeWindowSeconds').value);
+            const ruleType = document.getElementById('editRuleType').value;
+            
+            // 验证必填项
+            if (!ruleName) {
+                alert('规则名称为必填项');
+                return;
+            }
+            
+            // 获取触发行为
+            const actions = [];
+            if (document.getElementById('editActionAlert').checked) {
+                actions.push('GENERATE_ALERT');
+            }
+            if (document.getElementById('editActionBlock').checked) {
+                actions.push('BLOCK_TRANSACTION');
+            }
+            if (document.getElementById('editActionRisk').checked) {
+                actions.push('UPDATE_RISK_SCORE');
+            }
+            
+            // 获取条件
+            const conditions = {};
+            const conditionRows = document.querySelectorAll('#editConditionsContainer .condition-row');
+            conditionRows.forEach(row => {
+                const key = row.querySelector('.condition-key').value;
+                const value = row.querySelector('.condition-value').value;
+                if (key && value) {
+                    // 尝试将值转换为数字
+                    if (!isNaN(value)) {
+                        conditions[key] = parseInt(value);
+                    } else {
+                        conditions[key] = value;
+                    }
+                }
+            });
+            
+            // 构建规则对象
+            const rule = {
+                ruleId: ruleId,
+                ruleName: ruleName,
+                description: description,
+                status: status,
+                priority: priority,
+                type: ruleType,
+                timeWindowSeconds: timeWindowSeconds,
+                conditions: conditions,
+                actions: actions,
+                eventSequence: ['TRANSACTION'] // 默认事件序列
+            };
+            
+            // 发送请求
+            fetch(`/api/fraud-detection/rules/${ruleId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(rule)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('更新规则失败');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // 关闭模态框并刷新规则列表
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editRuleModal'));
+                modal.hide();
+                
+                // 重新获取规则
+                fetchRules();
+                
+                // 显示成功消息
+                alert('规则更新成功！');
+            })
+            .catch(error => {
+                alert('更新规则失败: ' + error.message);
+            });
+        }
+        
+        // 删除规则
+        function deleteRule(ruleId) {
+            if (confirm('确定要删除该规则吗？此操作不可恢复。')) {
+                fetch(`/api/fraud-detection/rules/${ruleId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('删除规则失败');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // 重新获取规则
+                    fetchRules();
+                    
+                    // 显示成功消息
+                    alert('规则删除成功！');
+                })
+                .catch(error => {
+                    alert('删除规则失败: ' + error.message);
+                });
+            }
+        }
+    </script>
+</body>
+</html> 

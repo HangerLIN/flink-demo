@@ -83,6 +83,13 @@
             <version>${flink.version}</version>
         </dependency>
 
+        <!-- Flink CEP 复杂事件处理 -->
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-cep</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+
         <!-- 测试依赖 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

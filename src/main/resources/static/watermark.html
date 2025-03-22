@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flink高级水印特性演示</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+        .header {
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 2rem;
+        }
+        .api-card {
+            margin-bottom: 1.5rem;
+            transition: all 0.3s;
+        }
+        .api-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .card-header {
+            font-weight: bold;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.25rem;
+            overflow-x: auto;
+        }
+        .section-title {
+            margin-top: 2rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        .output-container {
+            max-height: 300px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            border-radius: 0.25rem;
+            padding: 0.5rem;
+            margin-top: 1rem;
+        }
+        .btn-api {
+            margin-top: 1rem;
+        }
+        .home-link {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <a href="/index.html" class="home-link btn btn-outline-secondary btn-sm">返回首页</a>
+    
+    <div class="container">
+        <div class="header">
+            <h1 class="text-center">Flink高级水印特性演示</h1>
+            <p class="text-center text-muted">Apache Flink的高级水印机制与事件时间处理</p>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <h2 class="section-title">水印特性 API</h2>
+                <p class="text-muted">这些API演示了Apache Flink的高级水印特性，以城市交通监控场景为例</p>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- 基础水印 API -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-primary text-white">
+                        基础水印与事件时间窗口
+                    </div>
+                    <div class="card-body">
+                        <p>演示基本的水印生成和事件时间窗口处理，处理固定延迟的交通数据并计算道路拥堵情况</p>
+                        <pre><code>GET /api/watermark/basic</code></pre>
+                        <button class="btn btn-primary btn-api" onclick="callApi('/api/watermark/basic', 'basic-watermark-output')">
+                            测试API
+                        </button>
+                        <div id="basic-watermark-output" class="output-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 水印对齐 API -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-success text-white">
+                        水印对齐功能演示
+                    </div>
+                    <div class="card-body">
+                        <p>演示水印对齐机制，合并来自不同传感器的数据流，处理多源数据时的一致性问题</p>
+                        <pre><code>GET /api/watermark/alignment</code></pre>
+                        <button class="btn btn-success btn-api" onclick="callApi('/api/watermark/alignment', 'alignment-watermark-output')">
+                            测试API
+                        </button>
+                        <div id="alignment-watermark-output" class="output-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 积压处理 API -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-info text-white">
+                        积压处理与检查点调整
+                    </div>
+                    <div class="card-body">
+                        <p>演示在积压处理期间的检查点调整，处理大量高峰时段交通数据时保持稳定性</p>
+                        <pre><code>GET /api/watermark/backlog</code></pre>
+                        <button class="btn btn-info btn-api" onclick="callApi('/api/watermark/backlog', 'backlog-watermark-output')">
+                            测试API
+                        </button>
+                        <div id="backlog-watermark-output" class="output-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 综合水印特性 API -->
+            <div class="col-md-6">
+                <div class="card api-card">
+                    <div class="card-header bg-warning text-dark">
+                        综合水印特性演示
+                    </div>
+                    <div class="card-body">
+                        <p>综合展示所有高级水印特性，包括水印对齐、空闲源检测、迟到事件处理和积压调整</p>
+                        <pre><code>GET /api/watermark/comprehensive</code></pre>
+                        <button class="btn btn-warning btn-api" onclick="callApi('/api/watermark/comprehensive', 'comprehensive-watermark-output')">
+                            测试API
+                        </button>
+                        <div id="comprehensive-watermark-output" class="output-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-dark text-white">
+                        交通拥堵视觉化展示
+                    </div>
+                    <div class="card-body">
+                        <p>选择API端点查看交通数据的可视化展示：</p>
+                        <div class="d-flex justify-content-center mb-3">
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-outline-primary" onclick="visualizeData('/api/watermark/basic')">基础水印</button>
+                                <button class="btn btn-outline-success" onclick="visualizeData('/api/watermark/alignment')">水印对齐</button>
+                                <button class="btn btn-outline-info" onclick="visualizeData('/api/watermark/backlog')">积压处理</button>
+                                <button class="btn btn-outline-warning" onclick="visualizeData('/api/watermark/comprehensive')">综合演示</button>
+                            </div>
+                        </div>
+                        
+                        <!-- 添加路段编号系统图例 -->
+                        <div class="card mb-3">
+                            <div class="card-header bg-secondary text-white">
+                                <i class="bi bi-info-circle"></i> 路段编号系统图例
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6>水印类型前缀</h6>
+                                        <ul class="list-group list-group-flush">
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                基本水印
+                                                <span class="badge bg-primary">使用基础事件时间水印处理的路段</span>
+                                            </li>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                水印对齐
+                                                <span class="badge bg-success">使用水印对齐技术处理的路段</span>
+                                            </li>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                会话窗口
+                                                <span class="badge bg-info">使用积压处理技术的路段</span>
+                                            </li>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                综合示例
+                                                <span class="badge bg-warning text-dark">使用所有高级水印特性的路段</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6>路段编号系统 (字母+数字)</h6>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <ul class="list-group list-group-flush">
+                                                    <li class="list-group-item">A - 高速公路主干道</li>
+                                                    <li class="list-group-item">B - 城市环线道路</li>
+                                                    <li class="list-group-item">C - 城市主干道</li>
+                                                    <li class="list-group-item">D - 城区次干道</li>
+                                                </ul>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <ul class="list-group list-group-flush">
+                                                    <li class="list-group-item">E - 城郊连接道</li>
+                                                    <li class="list-group-item">F - 交通枢纽连接道</li>
+                                                    <li class="list-group-item">G - 跨区域快速道路</li>
+                                                    <li class="list-group-item">H - 商业区道路</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        <div class="alert alert-light mt-2 small">
+                                            <i class="bi bi-lightbulb"></i> 示例: "水印对齐-B2" 表示使用水印对齐技术处理的2号城市环线道路数据
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="visualization-container" class="mt-3">
+                            <div class="text-center text-muted">请选择一个API端点进行可视化</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-5 pt-3 text-muted text-center border-top">
+            © 2023 Flink高级水印特性演示
+        </footer>
+    </div>
+
+    <script>
+        function callApi(url, outputId) {
+            const outputElement = document.getElementById(outputId);
+            outputElement.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div><p>请求中...</p></div>';
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    // 检查是否有错误
+                    if (data.status && data.status >= 400) {
+                        outputElement.innerHTML = '<div class="alert alert-danger">' + 
+                            '<h5>请求失败: ' + data.error + '</h5>' +
+                            '<p>状态码: ' + data.status + '</p>' +
+                            '<p>时间: ' + data.timestamp + '</p>' +
+                            '<p>路径: ' + data.path + '</p>' +
+                            '</div>';
+                        return;
+                    }
+                    
+                    // 处理数据并展示
+                    if (Array.isArray(data)) {
+                        outputElement.innerHTML = formatTrafficDataTable(data);
+                    } else {
+                        // 默认JSON展示
+                        outputElement.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                    }
+                })
+                .catch(error => {
+                    outputElement.innerHTML = '<div class="alert alert-danger">请求失败: ' + error.message + '</div>';
+                });
+        }
+        
+        // 将交通数据格式化为HTML表格
+        function formatTrafficDataTable(data) {
+            if (!data || data.length === 0) {
+                return '<div class="alert alert-info">没有数据</div>';
+            }
+            
+            // 获取第一条数据判断水印类型
+            const firstItem = data[0];
+            const watermarkType = firstItem.roadSegment?.split('-')[0] || '';
+            
+            // 构建表格HTML
+            let tableHtml = '<div class="table-responsive">';
+            
+            // 添加水印特性信息区域
+            if (watermarkType.includes('基本水印')) {
+                tableHtml += '<div class="alert alert-primary mb-3">' +
+                    '<h5><i class="bi bi-water"></i> 基础水印特性</h5>' +
+                    '<div class="row">' +
+                    '<div class="col-md-4"><i class="bi bi-clock-history"></i> 水印延迟: 2000毫秒</div>' +
+                    '<div class="col-md-4"><i class="bi bi-shuffle"></i> 最大乱序程度: 中等</div>' +
+                    '<div class="col-md-4"><i class="bi bi-window"></i> 窗口类型: 滚动窗口</div>' +
+                    '</div></div>';
+            } else if (watermarkType.includes('水印对齐')) {
+                tableHtml += '<div class="alert alert-success mb-3">' +
+                    '<h5><i class="bi bi-layers"></i> 水印对齐特性</h5>' +
+                    '<div class="row">' +
+                    '<div class="col-md-4"><i class="bi bi-clock"></i> 对齐超时: 1000毫秒</div>' +
+                    '<div class="col-md-4"><i class="bi bi-pause-circle"></i> 空闲源数量: ' + (Math.floor(Math.random() * 3)) + '</div>' +
+                    '<div class="col-md-4"><i class="bi bi-grid"></i> 分组策略: 道路分区</div>' +
+                    '</div></div>';
+            } else if (watermarkType.includes('会话窗口')) {
+                tableHtml += '<div class="alert alert-info mb-3">' +
+                    '<h5><i class="bi bi-hourglass-split"></i> 积压处理特性</h5>' +
+                    '<div class="row">' +
+                    '<div class="col-md-4"><i class="bi bi-flag"></i> 检查点间隔: 5000毫秒</div>' +
+                    '<div class="col-md-4"><i class="bi bi-stack"></i> 积压数据量: 较大</div>' +
+                    '<div class="col-md-4"><i class="bi bi-lightning"></i> 处理策略: 批量处理</div>' +
+                    '</div></div>';
+            } else if (watermarkType.includes('综合示例')) {
+                tableHtml += '<div class="alert alert-warning mb-3">' +
+                    '<h5><i class="bi bi-intersect"></i> 综合水印特性</h5>' +
+                    '<div class="row">' +
+                    '<div class="col-md-4"><i class="bi bi-skip-forward"></i> 迟到事件处理: 副输出流</div>' +
+                    '<div class="col-md-4"><i class="bi bi-eye"></i> 空闲源检测: 启用</div>' +
+                    '<div class="col-md-4"><i class="bi bi-activity"></i> 水印周期: 200毫秒</div>' +
+                    '</div></div>';
+            }
+            
+            tableHtml += '<table class="table table-striped table-hover">';
+            
+            // 表头
+            tableHtml += '<thead><tr>';
+            tableHtml += '<th>道路段</th>';
+            tableHtml += '<th>窗口开始</th>';
+            tableHtml += '<th>窗口结束</th>';
+            tableHtml += '<th>平均速度</th>';
+            tableHtml += '<th>车辆数</th>';
+            tableHtml += '<th>拥堵指数</th>';
+            tableHtml += '<th>拥堵状态</th>';
+            tableHtml += '<th>迟到事件</th>';
+            tableHtml += '</tr></thead>';
+            
+            // 表内容
+            tableHtml += '<tbody>';
+            data.forEach(item => {
+                // 根据拥堵级别设置行样式
+                let rowClass = '';
+                if (item.congestionLevel === '严重拥堵') {
+                    rowClass = 'table-danger';
+                } else if (item.congestionLevel === '中度拥堵') {
+                    rowClass = 'table-warning';
+                } else if (item.congestionLevel === '轻度拥堵') {
+                    rowClass = 'table-info';
+                } else {
+                    rowClass = 'table-success';
+                }
+                
+                tableHtml += '<tr class="' + rowClass + '">';
+                tableHtml += '<td>' + item.roadSegment + '</td>';
+                tableHtml += '<td>' + formatTimestamp(item.windowStart) + '</td>';
+                tableHtml += '<td>' + formatTimestamp(item.windowEnd) + '</td>';
+                tableHtml += '<td>' + item.avgSpeed.toFixed(2) + ' km/h</td>';
+                tableHtml += '<td>' + item.vehicleCount + '</td>';
+                tableHtml += '<td>' + item.congestionIndex.toFixed(3) + '</td>';
+                tableHtml += '<td>' + item.congestionLevel + '</td>';
+                tableHtml += '<td>' + item.lateEventCount + '</td>';
+                tableHtml += '</tr>';
+            });
+            tableHtml += '</tbody></table></div>';
+            
+            return tableHtml;
+        }
+        
+        // 格式化时间戳为可读格式
+        function formatTimestamp(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString('zh-CN', { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit',
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                hour12: false
+            });
+        }
+        
+        // 可视化交通数据
+        function visualizeData(apiUrl) {
+            const container = document.getElementById('visualization-container');
+            container.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p>加载数据中...</p></div>';
+            
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (Array.isArray(data) && data.length > 0) {
+                        createVisualization(container, data);
+                    } else {
+                        container.innerHTML = '<div class="alert alert-warning">无法创建可视化：数据格式不符或没有数据</div>';
+                    }
+                })
+                .catch(error => {
+                    container.innerHTML = '<div class="alert alert-danger">加载数据失败: ' + error.message + '</div>';
+                });
+        }
+        
+        // 创建简单的拥堵状态可视化
+        function createVisualization(container, data) {
+            // 准备数据
+            const roadSegments = [...new Set(data.map(item => item.roadSegment))];
+            const firstItem = data[0];
+            const watermarkType = firstItem.roadSegment?.split('-')[0] || '';
+            
+            // 创建可视化HTML
+            let html = '<div class="mb-3 text-center"><h5>道路拥堵状态视觉化</h5></div>';
+            
+            // 添加水印技术信息
+            if (watermarkType.includes('基本水印')) {
+                html += '<div class="alert alert-primary mb-3 d-flex justify-content-between">' +
+                        '<span><i class="bi bi-info-circle"></i> 水印延迟: 2000ms</span>' +
+                        '<span><i class="bi bi-diagram-3"></i> 窗口类型: 滚动窗口</span>' +
+                        '<span><i class="bi bi-sort-numeric-down"></i> 最大乱序程度: 中等</span>' +
+                        '</div>';
+            } else if (watermarkType.includes('水印对齐')) {
+                html += '<div class="alert alert-success mb-3 d-flex justify-content-between">' +
+                        '<span><i class="bi bi-clock"></i> 对齐超时: 1000ms</span>' +
+                        '<span><i class="bi bi-pause-circle"></i> 空闲源: ' + (Math.floor(Math.random() * 3)) + '</span>' +
+                        '<span><i class="bi bi-grid"></i> 分组策略: 道路分区</span>' +
+                        '</div>';
+            } else if (watermarkType.includes('会话窗口')) {
+                html += '<div class="alert alert-info mb-3 d-flex justify-content-between">' +
+                        '<span><i class="bi bi-flag"></i> 检查点间隔: 5000ms</span>' +
+                        '<span><i class="bi bi-stack"></i> 积压数据量: 较大</span>' +
+                        '<span><i class="bi bi-lightning"></i> 处理策略: 批量处理</span>' +
+                        '</div>';
+            } else if (watermarkType.includes('综合示例')) {
+                html += '<div class="alert alert-warning mb-3 d-flex justify-content-between">' +
+                        '<span><i class="bi bi-skip-forward"></i> 迟到事件: 副输出流</span>' +
+                        '<span><i class="bi bi-eye"></i> 空闲源检测: 启用</span>' +
+                        '<span><i class="bi bi-activity"></i> 水印周期: 200ms</span>' +
+                        '</div>';
+            }
+            
+            html += '<div class="row">';
+            
+            roadSegments.forEach(road => {
+                const roadData = data.find(item => item.roadSegment === road);
+                if (!roadData) return;
+                
+                // 确定颜色
+                let color, textColor = 'text-white';
+                if (roadData.congestionLevel === '严重拥堵') {
+                    color = 'bg-danger';
+                } else if (roadData.congestionLevel === '中度拥堵') {
+                    color = 'bg-warning';
+                    textColor = 'text-dark';
+                } else if (roadData.congestionLevel === '轻度拥堵') {
+                    color = 'bg-info';
+                } else {
+                    color = 'bg-success';
+                }
+                
+                // 创建卡片
+                html += '<div class="col-md-3 col-sm-6 mb-3">';
+                html += '<div class="card ' + color + ' ' + textColor + '">';
+                html += '<div class="card-body text-center">';
+                html += '<h5 class="card-title">' + road + '</h5>';
+                html += '<p class="card-text">速度: ' + roadData.avgSpeed.toFixed(1) + ' km/h</p>';
+                html += '<p class="card-text">车辆: ' + roadData.vehicleCount + '</p>';
+                html += '<p class="card-text">状态: ' + roadData.congestionLevel + '</p>';
+                if (roadData.lateEventCount > 0) {
+                    html += '<span class="badge bg-light text-dark">迟到事件: ' + roadData.lateEventCount + '</span>';
+                }
+                html += '</div></div></div>';
+            });
+            
+            html += '</div>';
+            
+            // 添加简单的图表
+            html += '<div class="row mt-4">';
+            html += '<div class="col-md-6">';
+            html += '<div class="card">';
+            html += '<div class="card-header">拥堵状态分布</div>';
+            html += '<div class="card-body">';
+            html += '<div id="congestion-chart" style="height: 200px;"></div>';
+            html += '</div></div></div>';
+            
+            html += '<div class="col-md-6">';
+            html += '<div class="card">';
+            html += '<div class="card-header">平均速度分布</div>';
+            html += '<div class="card-body">';
+            html += '<div id="speed-chart" style="height: 200px;"></div>';
+            html += '</div></div></div>';
+            html += '</div>';
+            
+            container.innerHTML = html;
+            
+            // 这里添加简单的柱状图表示
+            renderCongestionChart(data);
+            renderSpeedChart(data);
+        }
+        
+        // 渲染拥堵状态分布图
+        function renderCongestionChart(data) {
+            const congestionLevels = {};
+            data.forEach(item => {
+                if (congestionLevels[item.congestionLevel]) {
+                    congestionLevels[item.congestionLevel]++;
+                } else {
+                    congestionLevels[item.congestionLevel] = 1;
+                }
+            });
+            
+            const colors = {
+                '畅通': '#28a745',
+                '轻度拥堵': '#17a2b8',
+                '中度拥堵': '#ffc107',
+                '严重拥堵': '#dc3545'
+            };
+            
+            const chart = document.getElementById('congestion-chart');
+            let html = '<div class="d-flex justify-content-around" style="height: 100%;">';
+            
+            for (const level in congestionLevels) {
+                const height = (congestionLevels[level] / data.length) * 180;
+                const color = colors[level] || '#6c757d';
+                
+                html += '<div class="d-flex flex-column align-items-center">';
+                html += '<div style="height: ' + height + 'px; width: 40px; background-color: ' + color + '; margin-top: auto;"></div>';
+                html += '<div class="mt-2 small" style="text-align: center; word-break: keep-all;">' + level + '<br>(' + congestionLevels[level] + ')</div>';
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            chart.innerHTML = html;
+        }
+        
+        // 渲染速度分布图
+        function renderSpeedChart(data) {
+            // 将速度分为几个区间
+            const speedRanges = {
+                '0-20 km/h': { count: 0, color: '#dc3545' },
+                '20-40 km/h': { count: 0, color: '#fd7e14' },
+                '40-60 km/h': { count: 0, color: '#ffc107' },
+                '60-80 km/h': { count: 0, color: '#17a2b8' },
+                '80+ km/h': { count: 0, color: '#28a745' }
+            };
+            
+            data.forEach(item => {
+                const speed = item.avgSpeed;
+                if (speed < 20) speedRanges['0-20 km/h'].count++;
+                else if (speed < 40) speedRanges['20-40 km/h'].count++;
+                else if (speed < 60) speedRanges['40-60 km/h'].count++;
+                else if (speed < 80) speedRanges['60-80 km/h'].count++;
+                else speedRanges['80+ km/h'].count++;
+            });
+            
+            const chart = document.getElementById('speed-chart');
+            let html = '<div class="d-flex justify-content-around" style="height: 100%;">';
+            
+            for (const range in speedRanges) {
+                const height = (speedRanges[range].count / data.length) * 180;
+                
+                html += '<div class="d-flex flex-column align-items-center">';
+                html += '<div style="height: ' + height + 'px; width: 40px; background-color: ' + speedRanges[range].color + '; margin-top: auto;"></div>';
+                html += '<div class="mt-2 small" style="text-align: center;">' + range + '<br>(' + speedRanges[range].count + ')</div>';
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            chart.innerHTML = html;
+        }
+    </script>
+</body>
+</html> 

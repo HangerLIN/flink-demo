@@ -1,0 +1,1 @@
+[{"transactionId":"simple123","userId":"user1","amount":20000,"type":"TRANSFER","channel":"WEB","ipAddress":"192.168.1.1","location":"Beijing","deviceId":"device-1","timestamp":"2025-03-22T14:50:00","riskScore":50}]

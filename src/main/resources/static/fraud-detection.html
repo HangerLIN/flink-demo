@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时交易欺诈检测 - Flink CEP演示</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+        .header {
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 2rem;
+        }
+        .card {
+            margin-bottom: 1.5rem;
+            transition: all 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .card-header {
+            font-weight: bold;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.25rem;
+            overflow-x: auto;
+        }
+        .section-title {
+            margin-top: 2rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        .result-container {
+            max-height: 500px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            border-radius: 0.25rem;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        .alert-table th, .alert-table td {
+            vertical-align: middle;
+        }
+        .badge-large {
+            font-size: 0.9em;
+            padding: 0.5em 0.7em;
+        }
+        .transaction-item {
+            border-left: 4px solid #dc3545;
+            padding-left: 15px;
+            margin-bottom: 10px;
+            background-color: #fff;
+            border-radius: 4px;
+            padding: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .high-risk {
+            border-left-color: #dc3545;
+        }
+        .medium-risk {
+            border-left-color: #fd7e14;
+        }
+        .low-risk {
+            border-left-color: #20c997;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1>实时交易欺诈检测</h1>
+                <a href="/" class="btn btn-outline-primary">返回首页</a>
+            </div>
+            <p class="text-muted">使用Flink CEP(复杂事件处理)实时检测可疑交易行为</p>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-danger text-white">
+                        执行欺诈检测
+                    </div>
+                    <div class="card-body">
+                        <p>生成随机交易数据并执行欺诈检测分析。系统将检测多种欺诈模式，包括：</p>
+                        <ul>
+                            <li><strong>快速连续交易</strong> - 短时间内同一用户的多次交易</li>
+                            <li><strong>地理位置异常变化</strong> - 短时间内不同地理位置的交易</li>
+                            <li><strong>大额交易</strong> - 超过阈值的大额交易</li>
+                            <li><strong>高风险评分交易</strong> - 风险评分超过阈值的交易</li>
+                        </ul>
+                        
+                        <div class="row mt-4">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="transactionCount" class="form-label">交易数量</label>
+                                    <input type="number" class="form-control" id="transactionCount" value="20" min="5" max="200">
+                                    <div class="form-text">生成的随机交易数量 (建议5-200)</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 d-flex align-items-end">
+                                <button id="runDetectionBtn" class="btn btn-danger">执行欺诈检测</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <h2 class="section-title">检测结果</h2>
+                <div id="loadingIndicator" class="d-none">
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border text-danger" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                    <p class="text-center mt-2">正在处理交易数据，请稍候...</p>
+                    <p class="text-center text-muted small">处理较多交易数据时可能需要较长时间</p>
+                </div>
+                <div id="detectionResult" class="result-container d-none">
+                    <!-- 结果将在这里显示 -->
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        欺诈警报
+                    </div>
+                    <div class="card-body">
+                        <div id="alertsContainer" class="result-container">
+                            <p class="text-center text-muted">尚未执行检测</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        流量异常
+                    </div>
+                    <div class="card-body">
+                        <div id="anomaliesContainer" class="result-container">
+                            <p class="text-center text-muted">尚未执行检测</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        测试交易数据
+                    </div>
+                    <div class="card-body">
+                        <div id="transactionsContainer" class="result-container">
+                            <p class="text-center text-muted">尚未生成交易数据</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-5 pt-3 text-muted text-center border-top">
+            © 2025 Flink CEP 欺诈检测演示
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const runDetectionBtn = document.getElementById('runDetectionBtn');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const detectionResult = document.getElementById('detectionResult');
+            const alertsContainer = document.getElementById('alertsContainer');
+            const anomaliesContainer = document.getElementById('anomaliesContainer');
+            const transactionsContainer = document.getElementById('transactionsContainer');
+            
+            // 生成交易并执行检测
+            runDetectionBtn.addEventListener('click', function() {
+                // 获取交易数量
+                const transactionCount = document.getElementById('transactionCount').value;
+                
+                // 显示加载指示器
+                loadingIndicator.classList.remove('d-none');
+                detectionResult.classList.add('d-none');
+                alertsContainer.innerHTML = '<p class="text-center">处理中...</p>';
+                anomaliesContainer.innerHTML = '<p class="text-center">处理中...</p>';
+                transactionsContainer.innerHTML = '<p class="text-center">正在生成交易数据...</p>';
+                
+                // 先生成交易数据
+                fetch(`/api/fraud/generate-test-data?count=${transactionCount}`)
+                    .then(response => response.json())
+                    .then(transactions => {
+                        // 显示生成的交易数据
+                        displayTransactions(transactions);
+                        
+                        // 然后进行欺诈检测
+                        return fetch('/api/fraud/detect', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(transactions)
+                        });
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        // 隐藏加载指示器
+                        loadingIndicator.classList.add('d-none');
+                        detectionResult.classList.remove('d-none');
+                        
+                        // 显示检测结果
+                        displayDetectionResult(data);
+                        
+                        // 显示警报
+                        if (data.alerts && data.alerts.length > 0) {
+                            displayAlerts(data.alerts);
+                        } else {
+                            alertsContainer.innerHTML = '<p class="text-center text-success">未检测到欺诈警报</p>';
+                        }
+                        
+                        // 显示流量异常
+                        if (data.anomalies && data.anomalies.length > 0) {
+                            displayAnomalies(data.anomalies);
+                        } else {
+                            anomaliesContainer.innerHTML = '<p class="text-center text-success">未检测到流量异常</p>';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        loadingIndicator.classList.add('d-none');
+                        detectionResult.classList.remove('d-none');
+                        detectionResult.innerHTML = `
+                            <div class="alert alert-danger">
+                                <h5>请求失败</h5>
+                                <p>${error.message || '服务器处理请求时出错'}</p>
+                                <p class="small">提示：处理大量交易时请求可能超时，请尝试减少交易数量</p>
+                            </div>
+                        `;
+                        alertsContainer.innerHTML = '<p class="text-center text-danger">请求失败</p>';
+                        anomaliesContainer.innerHTML = '<p class="text-center text-danger">请求失败</p>';
+                    });
+            });
+            
+            // 显示检测结果
+            function displayDetectionResult(data) {
+                let html = '';
+                
+                if (data.success) {
+                    html += `
+                        <div class="alert alert-success">
+                            <h5>欺诈检测任务执行成功</h5>
+                            <p>${data.message}</p>
+                        </div>
+                    `;
+                    
+                    // 显示统计信息
+                    if (data.executionStats) {
+                        const stats = data.executionStats;
+                        html += `
+                            <div class="card mb-3">
+                                <div class="card-header bg-primary text-white">
+                                    执行统计
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <div class="card text-center">
+                                                <div class="card-body">
+                                                    <h5>${stats.eventsProcessed}</h5>
+                                                    <p class="text-muted">处理事件数</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="card text-center">
+                                                <div class="card-body">
+                                                    <h5>${stats.totalRulesExecuted}</h5>
+                                                    <p class="text-muted">执行规则数</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="card text-center">
+                                                <div class="card-body">
+                                                    <h5>${stats.rulesTriggered}</h5>
+                                                    <p class="text-muted">触发规则数</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="card text-center">
+                                                <div class="card-body">
+                                                    <h5>${(stats.processingTimeMs / 1000).toFixed(2)}秒</h5>
+                                                    <p class="text-muted">处理时间</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // 显示警报和异常摘要
+                    html += `
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <h2 class="display-4">${data.alerts ? data.alerts.length : 0}</h2>
+                                        <p class="text-muted">欺诈警报</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <h2 class="display-4">${data.anomalies ? data.anomalies.length : 0}</h2>
+                                        <p class="text-muted">流量异常</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // 显示错误信息
+                    html += `
+                        <div class="alert alert-danger">
+                            <h5>欺诈检测任务执行失败</h5>
+                            <p>${data.message}</p>
+                        </div>
+                    `;
+                }
+                
+                detectionResult.innerHTML = html;
+            }
+            
+            // 显示警报
+            function displayAlerts(alerts) {
+                let html = '';
+                
+                if (alerts.length > 0) {
+                    html += '<div class="table-responsive"><table class="table table-striped alert-table">';
+                    html += `
+                        <thead>
+                            <tr>
+                                <th>风险等级</th>
+                                <th>用户ID</th>
+                                <th>欺诈模式</th>
+                                <th>描述</th>
+                                <th>建议操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                    `;
+                    
+                    alerts.forEach(alert => {
+                        let badgeClass = 'bg-info';
+                        if (alert.riskLevel === 'HIGH' || alert.riskLevel === 'CRITICAL') {
+                            badgeClass = 'bg-danger';
+                        } else if (alert.riskLevel === 'MEDIUM') {
+                            badgeClass = 'bg-warning text-dark';
+                        }
+                        
+                        html += `
+                            <tr>
+                                <td><span class="badge ${badgeClass} badge-large">${alert.riskLevel}</span></td>
+                                <td>${alert.userId}</td>
+                                <td>${alert.patternType.replace(/_/g, ' ')}</td>
+                                <td>${alert.description}</td>
+                                <td>${alert.recommendedAction}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</tbody></table></div>';
+                } else {
+                    html = '<p class="text-center text-success">没有检测到欺诈警报</p>';
+                }
+                
+                alertsContainer.innerHTML = html;
+            }
+            
+            // 显示流量异常
+            function displayAnomalies(anomalies) {
+                let html = '';
+                
+                if (anomalies.length > 0) {
+                    html += '<div class="table-responsive"><table class="table table-striped">';
+                    html += `
+                        <thead>
+                            <tr>
+                                <th>严重程度</th>
+                                <th>异常类型</th>
+                                <th>目标资源</th>
+                                <th>影响描述</th>
+                                <th>状态</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                    `;
+                    
+                    anomalies.forEach(anomaly => {
+                        let badgeClass = 'bg-info';
+                        if (anomaly.severity === 'CRITICAL') {
+                            badgeClass = 'bg-danger';
+                        } else if (anomaly.severity === 'WARNING') {
+                            badgeClass = 'bg-warning text-dark';
+                        }
+                        
+                        html += `
+                            <tr>
+                                <td><span class="badge ${badgeClass} badge-large">${anomaly.severity}</span></td>
+                                <td>${anomaly.type.replace(/_/g, ' ')}</td>
+                                <td>${anomaly.targetResource}</td>
+                                <td>${anomaly.impactDescription}</td>
+                                <td>${anomaly.ongoing ? '正在进行' : '已结束'}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</tbody></table></div>';
+                } else {
+                    html = '<p class="text-center text-success">没有检测到流量异常</p>';
+                }
+                
+                anomaliesContainer.innerHTML = html;
+            }
+            
+            // 显示交易数据
+            function displayTransactions(transactions) {
+                let html = '';
+                
+                if (transactions.length > 0) {
+                    html += '<h5>生成了 ' + transactions.length + ' 条测试交易数据</h5>';
+                    html += '<div class="row">';
+                    
+                    transactions.slice(0, 12).forEach(tx => {
+                        let riskClass = 'low-risk';
+                        if (tx.riskScore > 80) {
+                            riskClass = 'high-risk';
+                        } else if (tx.riskScore > 50) {
+                            riskClass = 'medium-risk';
+                        }
+                        
+                        const date = new Date(tx.timestamp);
+                        const formattedDate = date.toLocaleString();
+                        
+                        html += `
+                            <div class="col-md-6 mb-2">
+                                <div class="transaction-item ${riskClass}">
+                                    <div class="d-flex justify-content-between">
+                                        <strong>${tx.userId}</strong>
+                                        <span class="badge bg-${tx.riskScore > 80 ? 'danger' : tx.riskScore > 50 ? 'warning text-dark' : 'success'}">
+                                            风险评分: ${tx.riskScore}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span class="text-muted">${tx.type}</span> | 
+                                        <span>¥${tx.amount}</span> | 
+                                        <span>${tx.location}</span>
+                                    </div>
+                                    <div class="text-muted small">${formattedDate}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div>';
+                    
+                    if (transactions.length > 12) {
+                        html += `<p class="text-center text-muted mt-3">仅显示前12条交易记录，共${transactions.length}条</p>`;
+                    }
+                } else {
+                    html = '<p class="text-center text-muted">没有生成交易数据</p>';
+                }
+                
+                transactionsContainer.innerHTML = html;
+            }
+        });
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交易流量异常分析 - Flink Demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+        .header {
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 2rem;
+        }
+        .card {
+            margin-bottom: 1.5rem;
+            transition: all 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .section-title {
+            margin-top: 2rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        .anomaly-date {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+        .anomaly-item {
+            padding: 1rem;
+            border-radius: 0.25rem;
+            margin-bottom: 1rem;
+            background-color: #f8f9fa;
+            border-left: 5px solid #0dcaf0;
+        }
+        .anomaly-critical {
+            border-left-color: #dc3545;
+            background-color: rgba(220, 53, 69, 0.1);
+        }
+        .anomaly-warning {
+            border-left-color: #ffc107;
+            background-color: rgba(255, 193, 7, 0.1);
+        }
+        .anomaly-info {
+            border-left-color: #0dcaf0;
+            background-color: rgba(13, 202, 240, 0.1);
+        }
+        .chart-container {
+            height: 300px;
+            margin-bottom: 2rem;
+        }
+        .modal-dialog {
+            max-width: 800px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1>交易流量异常分析</h1>
+                <a href="/" class="btn btn-outline-secondary">返回首页</a>
+            </div>
+            <p class="text-muted">监控和分析交易流量异常情况</p>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        异常概览
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-3">
+                                <h3 id="totalAnomalies">0</h3>
+                                <p>总异常数</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h3 id="criticalAnomalies">0</h3>
+                                <p>严重</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h3 id="warningAnomalies">0</h3>
+                                <p>警告</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h3 id="ongoingAnomalies">0</h3>
+                                <p>进行中</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h2>流量监控</h2>
+                    <div>
+                        <div class="input-group">
+                            <select class="form-select" id="typeFilter">
+                                <option value="ALL" selected>所有类型</option>
+                                <option value="UNUSUAL_TRAFFIC_SPIKE">流量激增</option>
+                                <option value="ABNORMAL_PATTERN">异常模式</option>
+                                <option value="PERIODIC_BEHAVIOR">周期性行为</option>
+                            </select>
+                            <select class="form-select" id="severityFilter">
+                                <option value="ALL" selected>所有严重性</option>
+                                <option value="CRITICAL">严重</option>
+                                <option value="WARNING">警告</option>
+                                <option value="INFO">信息</option>
+                            </select>
+                            <button class="btn btn-outline-secondary" id="refreshBtn">
+                                <i class="bi bi-arrow-clockwise"></i> 刷新
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        实时交易流量
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="trafficChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        流量异常分布
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="anomalyPieChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <h2>异常日志</h2>
+                <div id="anomalyContainer">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-info" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">加载异常数据中...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 异常详情模态框 -->
+        <div class="modal fade" id="anomalyDetailModal" tabindex="-1" aria-labelledby="anomalyDetailModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-info text-white">
+                        <h5 class="modal-title" id="anomalyDetailModalLabel">异常详情</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between">
+                                <h5 id="detailAnomalyId"></h5>
+                                <span id="detailSeverity" class="badge"></span>
+                            </div>
+                            <p id="detailImpactDescription" class="lead"></p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>目标资源: <strong id="detailTargetResource"></strong></span>
+                                <span id="detailStartTime" class="anomaly-date"></span>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        异常类型
+                                    </div>
+                                    <div class="card-body">
+                                        <p id="detailType"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        当前状态
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span id="detailStatus"></span>
+                                            <button class="btn btn-sm btn-outline-primary" id="resolveAnomalyBtn">
+                                                标记为已解决
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-header">
+                                        检测速率
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <h3 id="detailDetectedRate"></h3>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-header">
+                                        基准速率
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <h3 id="detailBaselineRate"></h3>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-header">
+                                        偏差百分比
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <h3 id="detailDeviationPercentage"></h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="card">
+                                <div class="card-header">
+                                    异常图表
+                                </div>
+                                <div class="card-body">
+                                    <div style="height: 200px;">
+                                        <canvas id="detailChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                        <button type="button" class="btn btn-info" id="investigateBtn">开始调查</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-5 pt-3 text-muted text-center border-top">
+            © 2023 Flink SpringBoot Demo
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化图表
+            initCharts();
+            
+            // 获取所有异常
+            fetchAnomalies();
+            
+            // 刷新按钮
+            document.getElementById('refreshBtn').addEventListener('click', function() {
+                fetchAnomalies();
+            });
+            
+            // 类型过滤器改变
+            document.getElementById('typeFilter').addEventListener('change', function() {
+                applyFilters();
+            });
+            
+            // 严重性过滤器改变
+            document.getElementById('severityFilter').addEventListener('change', function() {
+                applyFilters();
+            });
+            
+            // 解决异常按钮
+            document.getElementById('resolveAnomalyBtn').addEventListener('click', function() {
+                const anomalyId = document.getElementById('detailAnomalyId').textContent;
+                resolveAnomaly(anomalyId);
+            });
+            
+            // 开始调查按钮
+            document.getElementById('investigateBtn').addEventListener('click', function() {
+                const anomalyId = document.getElementById('detailAnomalyId').textContent;
+                investigateAnomaly(anomalyId);
+            });
+        });
+        
+        // 模拟交易流量数据
+        function generateTrafficData() {
+            const hours = 24;
+            const labels = [];
+            const normalData = [];
+            const anomalyData = [];
+            
+            for (let i = 0; i < hours; i++) {
+                labels.push(`${i}:00`);
+                // 基准流量：白天较高，晚上较低
+                let baseTraffic = 100;
+                if (i >= 8 && i <= 18) {
+                    baseTraffic = 300 + Math.random() * 100;
+                } else {
+                    baseTraffic = 100 + Math.random() * 50;
+                }
+                
+                normalData.push(baseTraffic);
+                
+                // 添加异常点
+                if (i === 10 || i === 16) {
+                    anomalyData.push(baseTraffic * (1.5 + Math.random()));
+                } else if (i === 2) {
+                    anomalyData.push(baseTraffic * (2 + Math.random()));
+                } else {
+                    anomalyData.push(null);
+                }
+            }
+            
+            return {
+                labels: labels,
+                normalData: normalData,
+                anomalyData: anomalyData
+            };
+        }
+        
+        // 初始化图表
+        function initCharts() {
+            // 流量图表
+            const trafficData = generateTrafficData();
+            const trafficCtx = document.getElementById('trafficChart').getContext('2d');
+            window.trafficChart = new Chart(trafficCtx, {
+                type: 'line',
+                data: {
+                    labels: trafficData.labels,
+                    datasets: [
+                        {
+                            label: '正常流量',
+                            data: trafficData.normalData,
+                            borderColor: 'rgba(13, 202, 240, 1)',
+                            backgroundColor: 'rgba(13, 202, 240, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: '异常峰值',
+                            data: trafficData.anomalyData,
+                            borderColor: 'rgba(220, 53, 69, 1)',
+                            backgroundColor: 'rgba(220, 53, 69, 0.5)',
+                            borderWidth: 2,
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '24小时交易流量趋势'
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '时间'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '交易量'
+                            },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+            
+            // 异常分布饼图
+            const pieCtx = document.getElementById('anomalyPieChart').getContext('2d');
+            window.anomalyPieChart = new Chart(pieCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['流量激增', '异常模式', '周期性行为'],
+                    datasets: [{
+                        data: [60, 30, 10],
+                        backgroundColor: [
+                            'rgba(220, 53, 69, 0.7)',
+                            'rgba(255, 193, 7, 0.7)',
+                            'rgba(13, 202, 240, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(220, 53, 69, 1)',
+                            'rgba(255, 193, 7, 1)',
+                            'rgba(13, 202, 240, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '异常类型分布'
+                        },
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 获取所有异常
+        function fetchAnomalies() {
+            fetch('/api/fraud-detection/anomalies')
+                .then(response => response.json())
+                .then(anomalies => {
+                    // 存储异常数据
+                    window.anomaliesData = anomalies;
+                    
+                    // 显示异常
+                    applyFilters();
+                    
+                    // 更新异常统计
+                    updateAnomalyStats(anomalies);
+                    
+                    // 更新饼图数据
+                    updatePieChart(anomalies);
+                })
+                .catch(error => {
+                    document.getElementById('anomalyContainer').innerHTML = `
+                        <div class="alert alert-danger">
+                            <h5>无法加载异常数据</h5>
+                            <p>${error.message}</p>
+                        </div>
+                    `;
+                });
+        }
+        
+        // 应用过滤器
+        function applyFilters() {
+            const typeFilter = document.getElementById('typeFilter').value;
+            const severityFilter = document.getElementById('severityFilter').value;
+            
+            if (!window.anomaliesData) {
+                return;
+            }
+            
+            let filteredAnomalies = window.anomaliesData;
+            
+            // 应用类型过滤
+            if (typeFilter !== 'ALL') {
+                filteredAnomalies = filteredAnomalies.filter(anomaly => anomaly.type === typeFilter);
+            }
+            
+            // 应用严重性过滤
+            if (severityFilter !== 'ALL') {
+                filteredAnomalies = filteredAnomalies.filter(anomaly => anomaly.severity === severityFilter);
+            }
+            
+            // 显示过滤后的异常
+            displayAnomalies(filteredAnomalies);
+        }
+        
+        // 显示异常
+        function displayAnomalies(anomalies) {
+            if (!anomalies || anomalies.length === 0) {
+                document.getElementById('anomalyContainer').innerHTML = `
+                    <div class="alert alert-info">
+                        <h5>没有找到异常</h5>
+                        <p>当前过滤条件下没有异常。尝试更改过滤条件或刷新页面。</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            
+            // 排序异常，使得严重性高的和进行中的显示在前面
+            anomalies.sort((a, b) => {
+                // 首先按进行中状态排序
+                if (a.ongoing && !b.ongoing) return -1;
+                if (!a.ongoing && b.ongoing) return 1;
+                
+                // 然后按严重性排序
+                const severityOrder = { 'CRITICAL': 0, 'WARNING': 1, 'INFO': 2 };
+                return severityOrder[a.severity] - severityOrder[b.severity];
+            });
+            
+            anomalies.forEach(anomaly => {
+                // 格式化日期时间
+                const startTime = new Date(anomaly.startTime);
+                const formattedTime = startTime.toLocaleString();
+                
+                // 设置异常样式
+                let anomalyClass = 'anomaly-info';
+                if (anomaly.severity === 'CRITICAL') {
+                    anomalyClass = 'anomaly-critical';
+                } else if (anomaly.severity === 'WARNING') {
+                    anomalyClass = 'anomaly-warning';
+                }
+                
+                // 异常状态标签
+                const statusBadge = anomaly.ongoing ? 
+                    '<span class="badge bg-danger">进行中</span>' : 
+                    '<span class="badge bg-success">已解决</span>';
+                
+                html += `
+                    <div class="anomaly-item ${anomalyClass}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="mb-0">${anomaly.type.replace(/_/g, ' ')}</h5>
+                            <div>
+                                ${statusBadge}
+                                <span class="badge bg-${getSeverityBadgeColor(anomaly.severity)} ms-1">${anomaly.severity}</span>
+                            </div>
+                        </div>
+                        <p class="mb-1">${anomaly.impactDescription}</p>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <small class="text-muted">目标资源: ${anomaly.targetResource}</small>
+                            <div>
+                                <small class="anomaly-date me-2">${formattedTime}</small>
+                                <button class="btn btn-sm btn-outline-info" onclick="viewAnomalyDetail('${anomaly.anomalyId}')">
+                                    查看详情
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('anomalyContainer').innerHTML = html;
+        }
+        
+        // 获取严重性徽章颜色
+        function getSeverityBadgeColor(severity) {
+            switch (severity) {
+                case 'CRITICAL': return 'danger';
+                case 'WARNING': return 'warning';
+                case 'INFO': return 'info';
+                default: return 'secondary';
+            }
+        }
+        
+        // 更新异常统计
+        function updateAnomalyStats(anomalies) {
+            if (!anomalies) {
+                return;
+            }
+            
+            const totalAnomalies = anomalies.length;
+            let criticalAnomalies = 0;
+            let warningAnomalies = 0;
+            let ongoingAnomalies = 0;
+            
+            anomalies.forEach(anomaly => {
+                if (anomaly.severity === 'CRITICAL') {
+                    criticalAnomalies++;
+                } else if (anomaly.severity === 'WARNING') {
+                    warningAnomalies++;
+                }
+                
+                if (anomaly.ongoing) {
+                    ongoingAnomalies++;
+                }
+            });
+            
+            document.getElementById('totalAnomalies').textContent = totalAnomalies;
+            document.getElementById('criticalAnomalies').textContent = criticalAnomalies;
+            document.getElementById('warningAnomalies').textContent = warningAnomalies;
+            document.getElementById('ongoingAnomalies').textContent = ongoingAnomalies;
+        }
+        
+        // 更新饼图数据
+        function updatePieChart(anomalies) {
+            if (!anomalies || !window.anomalyPieChart) {
+                return;
+            }
+            
+            // 统计异常类型数量
+            const typeCounts = {};
+            anomalies.forEach(anomaly => {
+                const type = anomaly.type;
+                typeCounts[type] = (typeCounts[type] || 0) + 1;
+            });
+            
+            // 准备饼图数据
+            const labels = Object.keys(typeCounts).map(type => type.replace(/_/g, ' '));
+            const data = Object.values(typeCounts);
+            
+            // 更新图表
+            window.anomalyPieChart.data.labels = labels;
+            window.anomalyPieChart.data.datasets[0].data = data;
+            window.anomalyPieChart.update();
+        }
+        
+        // 查看异常详情
+        function viewAnomalyDetail(anomalyId) {
+            if (!window.anomaliesData) {
+                return;
+            }
+            
+            const anomaly = window.anomaliesData.find(a => a.anomalyId === anomalyId);
+            if (!anomaly) {
+                return;
+            }
+            
+            // 填充异常详情
+            document.getElementById('detailAnomalyId').textContent = anomaly.anomalyId;
+            document.getElementById('detailImpactDescription').textContent = anomaly.impactDescription;
+            document.getElementById('detailTargetResource').textContent = anomaly.targetResource;
+            
+            // 设置严重性
+            const severityElement = document.getElementById('detailSeverity');
+            severityElement.textContent = anomaly.severity;
+            severityElement.className = `badge bg-${getSeverityBadgeColor(anomaly.severity)}`;
+            
+            // 设置时间戳
+            const startTime = new Date(anomaly.startTime);
+            document.getElementById('detailStartTime').textContent = startTime.toLocaleString();
+            
+            // 设置异常类型
+            document.getElementById('detailType').textContent = anomaly.type.replace(/_/g, ' ');
+            
+            // 设置状态
+            const statusElement = document.getElementById('detailStatus');
+            if (anomaly.ongoing) {
+                statusElement.textContent = '进行中';
+                statusElement.className = 'badge bg-danger';
+                document.getElementById('resolveAnomalyBtn').style.display = 'block';
+            } else {
+                statusElement.textContent = '已解决';
+                statusElement.className = 'badge bg-success';
+                document.getElementById('resolveAnomalyBtn').style.display = 'none';
+            }
+            
+            // 设置统计数据
+            document.getElementById('detailDetectedRate').textContent = anomaly.detectedRate;
+            document.getElementById('detailBaselineRate').textContent = anomaly.baselineRate;
+            document.getElementById('detailDeviationPercentage').textContent = `${anomaly.deviationPercentage.toFixed(2)}%`;
+            
+            // 创建详情图表
+            createDetailChart(anomaly);
+            
+            // 显示模态框
+            const modal = new bootstrap.Modal(document.getElementById('anomalyDetailModal'));
+            modal.show();
+        }
+        
+        // 创建详情图表
+        function createDetailChart(anomaly) {
+            // 生成模拟数据
+            const dataPoints = 20;
+            const labels = [];
+            const baselineData = [];
+            const detectedData = [];
+            
+            for (let i = 0; i < dataPoints; i++) {
+                labels.push(`T-${dataPoints - i}`);
+                
+                if (i < dataPoints - 5) {
+                    // 正常基准数据
+                    baselineData.push(anomaly.baselineRate * (0.9 + Math.random() * 0.2));
+                    detectedData.push(anomaly.baselineRate * (0.9 + Math.random() * 0.2));
+                } else {
+                    // 异常数据
+                    baselineData.push(anomaly.baselineRate);
+                    detectedData.push(anomaly.baselineRate * (1 + anomaly.deviationPercentage / 100) * (0.9 + Math.random() * 0.2));
+                }
+            }
+            
+            // 如果已存在图表，销毁它
+            if (window.detailChart) {
+                window.detailChart.destroy();
+            }
+            
+            // 创建新图表
+            const detailCtx = document.getElementById('detailChart').getContext('2d');
+            window.detailChart = new Chart(detailCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '基准速率',
+                            data: baselineData,
+                            borderColor: 'rgba(13, 202, 240, 1)',
+                            backgroundColor: 'rgba(13, 202, 240, 0.1)',
+                            borderDash: [5, 5],
+                            fill: false
+                        },
+                        {
+                            label: '检测速率',
+                            data: detectedData,
+                            borderColor: 'rgba(220, 53, 69, 1)',
+                            backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        legend: {
+                            position: 'bottom'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 解决异常
+        function resolveAnomaly(anomalyId) {
+            if (confirm('确定要将此异常标记为已解决吗？')) {
+                // 发送请求
+                fetch(`/api/fraud-detection/anomalies/${anomalyId}/resolve`, {
+                    method: 'PUT'
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('解决异常失败');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // 关闭模态框
+                    const modal = document.getElementById('anomalyDetailModal');
+                    if (modal) {
+                        const instance = bootstrap.Modal.getInstance(modal);
+                        if (instance) {
+                            instance.hide();
+                        }
+                    }
+                    
+                    // 重新获取异常
+                    fetchAnomalies();
+                    
+                    // 显示成功消息
+                    alert('异常已标记为已解决');
+                })
+                .catch(error => {
+                    alert('解决异常失败: ' + error.message);
+                });
+            }
+        }
+        
+        // 开始调查异常
+        function investigateAnomaly(anomalyId) {
+            // 在实际场景中，这可能会触发更详细的调查流程
+            alert(`已开始调查异常 ${anomalyId}，相关人员将收到通知。`);
+            
+            // 关闭模态框
+            const modal = document.getElementById('anomalyDetailModal');
+            if (modal) {
+                const instance = bootstrap.Modal.getInstance(modal);
+                if (instance) {
+                    instance.hide();
+                }
+            }
+        }
+    </script>
+</body>
+</html> 

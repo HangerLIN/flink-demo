@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>欺诈警报管理 - Flink Demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+        .header {
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 2rem;
+        }
+        .card {
+            margin-bottom: 1.5rem;
+            transition: all 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .section-title {
+            margin-top: 2rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        .alert-badge {
+            font-size: 0.8rem;
+            padding: 0.25rem 0.5rem;
+        }
+        .alert-high {
+            background-color: #f8d7da;
+        }
+        .alert-medium {
+            background-color: #fff3cd;
+        }
+        .alert-low {
+            background-color: #d1e7dd;
+        }
+        .alert-date {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+        .alert-table th {
+            white-space: nowrap;
+        }
+        .alert-status-NEW {
+            background-color: #cff4fc;
+        }
+        .alert-status-INVESTIGATING {
+            background-color: #fff3cd;
+        }
+        .alert-status-RESOLVED {
+            background-color: #d1e7dd;
+        }
+        .alert-status-FALSE_POSITIVE {
+            background-color: #e2e3e5;
+        }
+        .modal-dialog {
+            max-width: 800px;
+        }
+        .transaction-table {
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1>欺诈警报管理</h1>
+                <a href="/" class="btn btn-outline-secondary">返回首页</a>
+            </div>
+            <p class="text-muted">查看和处理检测到的欺诈警报</p>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        警报概览
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-3">
+                                <h3 id="totalAlerts">0</h3>
+                                <p>总警报数</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h3 id="highRiskAlerts">0</h3>
+                                <p>高风险</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h3 id="mediumRiskAlerts">0</h3>
+                                <p>中风险</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h3 id="newAlerts">0</h3>
+                                <p>未处理</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h2>警报列表</h2>
+                    <div>
+                        <div class="input-group">
+                            <select class="form-select" id="statusFilter">
+                                <option value="ALL" selected>所有状态</option>
+                                <option value="NEW">未处理</option>
+                                <option value="INVESTIGATING">调查中</option>
+                                <option value="RESOLVED">已解决</option>
+                                <option value="FALSE_POSITIVE">误报</option>
+                            </select>
+                            <select class="form-select" id="riskFilter">
+                                <option value="ALL" selected>所有风险</option>
+                                <option value="HIGH">高风险</option>
+                                <option value="MEDIUM">中风险</option>
+                                <option value="LOW">低风险</option>
+                            </select>
+                            <button class="btn btn-outline-secondary" id="refreshBtn">
+                                <i class="bi bi-arrow-clockwise"></i> 刷新
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <div class="table-responsive">
+                    <table class="table table-hover alert-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th>风险级别</th>
+                                <th>警报ID</th>
+                                <th>用户ID</th>
+                                <th>欺诈模式</th>
+                                <th>警报时间</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alertsTableBody">
+                            <tr>
+                                <td colspan="7" class="text-center py-4">
+                                    <div class="spinner-border text-warning" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <p class="mt-2">加载警报中...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 警报详情模态框 -->
+        <div class="modal fade" id="alertDetailModal" tabindex="-1" aria-labelledby="alertDetailModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning">
+                        <h5 class="modal-title" id="alertDetailModalLabel">警报详情</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between">
+                                <h5 id="detailAlertId"></h5>
+                                <span id="detailRiskLevel" class="badge"></span>
+                            </div>
+                            <p id="detailDescription" class="lead"></p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>用户ID: <strong id="detailUserId"></strong></span>
+                                <span id="detailTimestamp" class="alert-date"></span>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        欺诈模式
+                                    </div>
+                                    <div class="card-body">
+                                        <p id="detailPatternType"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        当前状态
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span id="detailStatus"></span>
+                                            <button class="btn btn-sm btn-outline-primary" id="changeStatusBtn">
+                                                更改状态
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="card">
+                                <div class="card-header">
+                                    建议操作
+                                </div>
+                                <div class="card-body">
+                                    <p id="detailRecommendedAction"></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <h6>相关交易</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered transaction-table">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>交易ID</th>
+                                            <th>金额</th>
+                                            <th>类型</th>
+                                            <th>渠道</th>
+                                            <th>地点</th>
+                                            <th>时间</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="relatedTransactionsBody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                        <div class="dropdown">
+                            <button class="btn btn-warning dropdown-toggle" type="button" id="actionDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                处理操作
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="actionDropdown">
+                                <li><a class="dropdown-item" href="#" id="markInvestigatingBtn">标记为调查中</a></li>
+                                <li><a class="dropdown-item" href="#" id="markResolvedBtn">标记为已解决</a></li>
+                                <li><a class="dropdown-item" href="#" id="markFalsePositiveBtn">标记为误报</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="#" id="blockUserBtn">冻结用户账户</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 更改状态模态框 -->
+        <div class="modal fade" id="changeStatusModal" tabindex="-1" aria-labelledby="changeStatusModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-sm">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title" id="changeStatusModalLabel">更改警报状态</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="changeStatusAlertId">
+                        <div class="mb-3">
+                            <label for="newStatus" class="form-label">选择新状态</label>
+                            <select class="form-select" id="newStatus">
+                                <option value="NEW">未处理</option>
+                                <option value="INVESTIGATING">调查中</option>
+                                <option value="RESOLVED">已解决</option>
+                                <option value="FALSE_POSITIVE">误报</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="statusNote" class="form-label">备注</label>
+                            <textarea class="form-control" id="statusNote" rows="3" placeholder="添加状态变更原因或备注信息（可选）"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-primary" id="confirmStatusChangeBtn">确认更改</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-5 pt-3 text-muted text-center border-top">
+            © 2023 Flink SpringBoot Demo
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取所有警报
+            fetchAlerts();
+            
+            // 刷新按钮
+            document.getElementById('refreshBtn').addEventListener('click', function() {
+                fetchAlerts();
+            });
+            
+            // 状态过滤器改变
+            document.getElementById('statusFilter').addEventListener('change', function() {
+                applyFilters();
+            });
+            
+            // 风险过滤器改变
+            document.getElementById('riskFilter').addEventListener('change', function() {
+                applyFilters();
+            });
+            
+            // 更改状态按钮
+            document.getElementById('changeStatusBtn').addEventListener('click', function() {
+                const alertId = document.getElementById('detailAlertId').textContent;
+                const currentStatus = document.getElementById('detailStatus').dataset.status;
+                
+                document.getElementById('changeStatusAlertId').value = alertId;
+                document.getElementById('newStatus').value = currentStatus;
+                
+                // 隐藏当前模态框，显示状态更改模态框
+                const alertDetailModal = bootstrap.Modal.getInstance(document.getElementById('alertDetailModal'));
+                alertDetailModal.hide();
+                
+                const changeStatusModal = new bootstrap.Modal(document.getElementById('changeStatusModal'));
+                changeStatusModal.show();
+            });
+            
+            // 确认状态更改按钮
+            document.getElementById('confirmStatusChangeBtn').addEventListener('click', function() {
+                const alertId = document.getElementById('changeStatusAlertId').value;
+                const newStatus = document.getElementById('newStatus').value;
+                const statusNote = document.getElementById('statusNote').value;
+                
+                updateAlertStatus(alertId, newStatus, statusNote);
+            });
+            
+            // 处理操作下拉菜单项
+            document.getElementById('markInvestigatingBtn').addEventListener('click', function() {
+                const alertId = document.getElementById('detailAlertId').textContent;
+                updateAlertStatus(alertId, 'INVESTIGATING', '开始调查');
+            });
+            
+            document.getElementById('markResolvedBtn').addEventListener('click', function() {
+                const alertId = document.getElementById('detailAlertId').textContent;
+                updateAlertStatus(alertId, 'RESOLVED', '已解决');
+            });
+            
+            document.getElementById('markFalsePositiveBtn').addEventListener('click', function() {
+                const alertId = document.getElementById('detailAlertId').textContent;
+                updateAlertStatus(alertId, 'FALSE_POSITIVE', '确认为误报');
+            });
+            
+            document.getElementById('blockUserBtn').addEventListener('click', function() {
+                const userId = document.getElementById('detailUserId').textContent;
+                blockUser(userId);
+            });
+        });
+        
+        // 获取所有警报
+        function fetchAlerts() {
+            fetch('/api/fraud-detection/alerts')
+                .then(response => response.json())
+                .then(alerts => {
+                    // 存储警报数据
+                    window.alertsData = alerts;
+                    
+                    // 显示警报
+                    applyFilters();
+                    
+                    // 更新警报统计
+                    updateAlertStats(alerts);
+                })
+                .catch(error => {
+                    document.getElementById('alertsTableBody').innerHTML = `
+                        <tr>
+                            <td colspan="7" class="text-center py-4">
+                                <div class="alert alert-danger">
+                                    <h5>无法加载警报</h5>
+                                    <p>${error.message}</p>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+        }
+        
+        // 应用过滤器
+        function applyFilters() {
+            const statusFilter = document.getElementById('statusFilter').value;
+            const riskFilter = document.getElementById('riskFilter').value;
+            
+            if (!window.alertsData) {
+                return;
+            }
+            
+            let filteredAlerts = window.alertsData;
+            
+            // 应用状态过滤
+            if (statusFilter !== 'ALL') {
+                filteredAlerts = filteredAlerts.filter(alert => alert.status === statusFilter);
+            }
+            
+            // 应用风险过滤
+            if (riskFilter !== 'ALL') {
+                filteredAlerts = filteredAlerts.filter(alert => alert.riskLevel === riskFilter);
+            }
+            
+            // 显示过滤后的警报
+            displayAlerts(filteredAlerts);
+        }
+        
+        // 显示警报
+        function displayAlerts(alerts) {
+            if (!alerts || alerts.length === 0) {
+                document.getElementById('alertsTableBody').innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center py-4">
+                            <div class="alert alert-info">
+                                <h5>没有找到警报</h5>
+                                <p>当前过滤条件下没有警报。尝试更改过滤条件或刷新页面。</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            let html = '';
+            
+            alerts.forEach(alert => {
+                // 格式化日期时间
+                const alertTime = new Date(alert.alertTime);
+                const formattedTime = alertTime.toLocaleString();
+                
+                // 获取适当的按钮颜色
+                let btnColor = 'btn-outline-success';
+                if (alert.status === 'NEW') {
+                    btnColor = 'btn-outline-danger';
+                } else if (alert.status === 'INVESTIGATING') {
+                    btnColor = 'btn-outline-warning';
+                }
+                
+                // 获取风险级别样式
+                let riskBadgeClass = 'bg-success';
+                if (alert.riskLevel === 'HIGH') {
+                    riskBadgeClass = 'bg-danger';
+                } else if (alert.riskLevel === 'MEDIUM') {
+                    riskBadgeClass = 'bg-warning text-dark';
+                }
+                
+                html += `
+                    <tr class="alert-status-${alert.status}">
+                        <td>
+                            <span class="badge ${riskBadgeClass}">${alert.riskLevel}</span>
+                        </td>
+                        <td>${alert.alertId}</td>
+                        <td>${alert.userId}</td>
+                        <td>${alert.patternType}</td>
+                        <td>${formattedTime}</td>
+                        <td>
+                            <span class="badge bg-${getStatusBadgeColor(alert.status)}">${formatStatus(alert.status)}</span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm ${btnColor}" onclick="viewAlertDetail('${alert.alertId}')">
+                                查看详情
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            document.getElementById('alertsTableBody').innerHTML = html;
+        }
+        
+        // 格式化状态文本
+        function formatStatus(status) {
+            switch (status) {
+                case 'NEW': return '未处理';
+                case 'INVESTIGATING': return '调查中';
+                case 'RESOLVED': return '已解决';
+                case 'FALSE_POSITIVE': return '误报';
+                default: return status;
+            }
+        }
+        
+        // 获取状态徽章颜色
+        function getStatusBadgeColor(status) {
+            switch (status) {
+                case 'NEW': return 'danger';
+                case 'INVESTIGATING': return 'warning';
+                case 'RESOLVED': return 'success';
+                case 'FALSE_POSITIVE': return 'secondary';
+                default: return 'info';
+            }
+        }
+        
+        // 更新警报统计
+        function updateAlertStats(alerts) {
+            if (!alerts) {
+                return;
+            }
+            
+            const totalAlerts = alerts.length;
+            let highRiskAlerts = 0;
+            let mediumRiskAlerts = 0;
+            let newAlerts = 0;
+            
+            alerts.forEach(alert => {
+                if (alert.riskLevel === 'HIGH') {
+                    highRiskAlerts++;
+                } else if (alert.riskLevel === 'MEDIUM') {
+                    mediumRiskAlerts++;
+                }
+                
+                if (alert.status === 'NEW') {
+                    newAlerts++;
+                }
+            });
+            
+            document.getElementById('totalAlerts').textContent = totalAlerts;
+            document.getElementById('highRiskAlerts').textContent = highRiskAlerts;
+            document.getElementById('mediumRiskAlerts').textContent = mediumRiskAlerts;
+            document.getElementById('newAlerts').textContent = newAlerts;
+        }
+        
+        // 查看警报详情
+        function viewAlertDetail(alertId) {
+            if (!window.alertsData) {
+                return;
+            }
+            
+            const alert = window.alertsData.find(a => a.alertId === alertId);
+            if (!alert) {
+                return;
+            }
+            
+            // 填充警报详情
+            document.getElementById('detailAlertId').textContent = alert.alertId;
+            document.getElementById('detailDescription').textContent = alert.description;
+            document.getElementById('detailUserId').textContent = alert.userId;
+            
+            // 设置风险级别
+            const riskLevelElement = document.getElementById('detailRiskLevel');
+            riskLevelElement.textContent = alert.riskLevel;
+            
+            if (alert.riskLevel === 'HIGH') {
+                riskLevelElement.className = 'badge bg-danger';
+            } else if (alert.riskLevel === 'MEDIUM') {
+                riskLevelElement.className = 'badge bg-warning text-dark';
+            } else {
+                riskLevelElement.className = 'badge bg-success';
+            }
+            
+            // 设置时间戳
+            const alertTime = new Date(alert.alertTime);
+            document.getElementById('detailTimestamp').textContent = alertTime.toLocaleString();
+            
+            // 设置欺诈模式
+            document.getElementById('detailPatternType').textContent = alert.patternType;
+            
+            // 设置状态
+            const statusElement = document.getElementById('detailStatus');
+            statusElement.textContent = formatStatus(alert.status);
+            statusElement.dataset.status = alert.status;
+            statusElement.className = `badge bg-${getStatusBadgeColor(alert.status)}`;
+            
+            // 设置建议操作
+            document.getElementById('detailRecommendedAction').textContent = alert.recommendedAction;
+            
+            // 填充相关交易
+            let transactionsHtml = '';
+            
+            if (alert.relatedTransactions && alert.relatedTransactions.length > 0) {
+                alert.relatedTransactions.forEach(tx => {
+                    const txTime = new Date(tx.timestamp);
+                    const formattedTxTime = txTime.toLocaleString();
+                    
+                    transactionsHtml += `
+                        <tr>
+                            <td>${tx.transactionId}</td>
+                            <td>${tx.amount}</td>
+                            <td>${tx.type}</td>
+                            <td>${tx.channel}</td>
+                            <td>${tx.location}</td>
+                            <td>${formattedTxTime}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                transactionsHtml = `
+                    <tr>
+                        <td colspan="6" class="text-center">无相关交易</td>
+                    </tr>
+                `;
+            }
+            
+            document.getElementById('relatedTransactionsBody').innerHTML = transactionsHtml;
+            
+            // 显示模态框
+            const modal = new bootstrap.Modal(document.getElementById('alertDetailModal'));
+            modal.show();
+        }
+        
+        // 更新警报状态
+        function updateAlertStatus(alertId, newStatus, note) {
+            // 构建更新对象
+            const update = {
+                status: newStatus,
+                note: note || ''
+            };
+            
+            // 发送请求
+            fetch(`/api/fraud-detection/alerts/${alertId}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(update)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('更新警报状态失败');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // 关闭所有模态框
+                const alertDetailModal = document.getElementById('alertDetailModal');
+                if (alertDetailModal) {
+                    const instance = bootstrap.Modal.getInstance(alertDetailModal);
+                    if (instance) {
+                        instance.hide();
+                    }
+                }
+                
+                const changeStatusModal = document.getElementById('changeStatusModal');
+                if (changeStatusModal) {
+                    const instance = bootstrap.Modal.getInstance(changeStatusModal);
+                    if (instance) {
+                        instance.hide();
+                    }
+                }
+                
+                // 重新获取警报
+                fetchAlerts();
+                
+                // 显示成功消息
+                alert('警报状态已更新');
+            })
+            .catch(error => {
+                alert('更新警报状态失败: ' + error.message);
+            });
+        }
+        
+        // 冻结用户账户
+        function blockUser(userId) {
+            if (confirm(`确定要冻结用户 ${userId} 的账户吗？`)) {
+                // 发送请求
+                fetch(`/api/users/${userId}/block`, {
+                    method: 'POST'
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('冻结用户账户失败');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // 关闭详情模态框
+                    const alertDetailModal = document.getElementById('alertDetailModal');
+                    if (alertDetailModal) {
+                        const instance = bootstrap.Modal.getInstance(alertDetailModal);
+                        if (instance) {
+                            instance.hide();
+                        }
+                    }
+                    
+                    // 显示成功消息
+                    alert(`用户 ${userId} 的账户已冻结`);
+                })
+                .catch(error => {
+                    alert('冻结用户账户失败: ' + error.message);
+                });
+            }
+        }
+    </script>
+</body>
+</html> 
